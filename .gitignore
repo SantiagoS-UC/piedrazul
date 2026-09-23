@@ -1,0 +1,21 @@
+# Java / Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Entorno local
+.env
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

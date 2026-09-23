@@ -1,0 +1,7 @@
+# Normaliza finales de línea para que Windows, macOS y Linux no generen diffs falsos.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.jar binary
+*.png binary
+*.jpg binary
