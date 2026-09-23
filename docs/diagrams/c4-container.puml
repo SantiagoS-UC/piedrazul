@@ -1,0 +1,23 @@
+@startuml c4-container
+!include <C4/C4_Container>
+
+title Diagrama de contenedores - Sistema de citas Piedrazul
+
+Person(patient, "Paciente")
+Person(scheduler, "Agendador de citas")
+Person(admin, "Administrador")
+
+System_Boundary(piedrazul, "Sistema de citas Piedrazul") {
+    Container(spa, "Aplicación web", "Angular, TypeScript", "SPA con la que interactúan todos los usuarios.")
+    Container(api, "API de Piedrazul", "Java 21, Spring Boot, Spring Modulith", "Monolito modular con los módulos identity, professionals, configuration y appointments.")
+    ContainerDb(db, "Base de datos", "PostgreSQL", "Usuarios, profesionales, configuración y citas.")
+}
+
+Rel(patient, spa, "Usa", "HTTPS")
+Rel(scheduler, spa, "Usa", "HTTPS")
+Rel(admin, spa, "Usa", "HTTPS")
+Rel(spa, api, "Consume", "JSON/HTTPS")
+Rel(api, db, "Lee y escribe", "JDBC")
+
+SHOW_LEGEND()
+@enduml
