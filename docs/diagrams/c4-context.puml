@@ -1,0 +1,17 @@
+@startuml c4-context
+!include <C4/C4_Context>
+
+title Diagrama de contexto - Sistema de citas Piedrazul
+
+Person(patient, "Paciente", "Se registra y agenda sus citas médicas desde la web.")
+Person(scheduler, "Agendador de citas", "Consulta las citas de cada profesional por fecha.")
+Person(admin, "Administrador", "Configura la disponibilidad de médicos y terapistas.")
+
+System(piedrazul, "Sistema de citas Piedrazul", "Permite agendar y gestionar citas médicas de la clínica.")
+
+Rel(patient, piedrazul, "Se registra y agenda citas")
+Rel(scheduler, piedrazul, "Lista citas por profesional y fecha")
+Rel(admin, piedrazul, "Configura parámetros de agendamiento")
+
+SHOW_LEGEND()
+@enduml
