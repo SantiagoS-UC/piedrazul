@@ -49,7 +49,8 @@ Un módulo solo puede usar los tipos del paquete raíz de otro; `ModularityTest`
    ```bash
    ./mvnw spring-boot:run
    ```
-   Queda en `http://localhost:8080`. `http://localhost:8080/actuator/health` debe responder `UP`.
+   Queda en `http://localhost:8081`. `http://localhost:8081/actuator/health` debe responder `UP`.
+   Si ese puerto también está ocupado en tu equipo, define la variable de entorno `SERVER_PORT`.
 3. Frontend, desde `frontend/`:
    ```bash
    npm install
