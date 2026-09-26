@@ -88,3 +88,19 @@ export function toIsoDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
+
+/** Exige al menos un elemento en un campo cuyo valor es una lista. */
+export function atLeastOne(): ValidatorFn {
+  return (control) => (Array.isArray(control.value) && control.value.length > 0 ? null : { atLeastOne: true });
+}
+
+/**
+ * Exige que la hora (HH:mm) sea posterior a la del campo hermano {@code otherField}. El formulario
+ * debe volver a validar este campo cuando cambie el otro.
+ */
+export function timeAfter(otherField: string): ValidatorFn {
+  return (control) => {
+    const other = control.parent?.get(otherField)?.value as string | undefined;
+    return !control.value || !other || control.value > other ? null : { timeNotAfter: true };
+  };
+}

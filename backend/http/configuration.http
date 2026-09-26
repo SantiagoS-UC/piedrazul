@@ -1,0 +1,90 @@
+### Peticiones de prueba de los módulos professionals y configuration.
+### Ejecuta primero el inicio de sesión: guarda el token y las demás peticiones lo usan.
+
+### Inicio de sesión del administrador (guarda el token en {{adminToken}})
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@gmail.com",
+  "password": "admin-1234"
+}
+
+> {% client.global.set("adminToken", response.body.token); %}
+
+### Profesionales en orden alfabético por apellido
+GET http://localhost:8081/api/professionals
+Authorization: Bearer {{adminToken}}
+
+### Especialidades
+GET http://localhost:8081/api/professionals/specialties
+Authorization: Bearer {{adminToken}}
+
+### Ventana de agendamiento vigente
+GET http://localhost:8081/api/configuration/scheduling-window
+Authorization: Bearer {{adminToken}}
+
+### Cambiar la ventana a 6 semanas
+PUT http://localhost:8081/api/configuration/scheduling-window
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "weeks": 6
+}
+
+### Ventana fuera de rango: responde 400
+PUT http://localhost:8081/api/configuration/scheduling-window
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "weeks": 20
+}
+
+### Disponibilidad de Laura Martínez (configurada en los datos iniciales)
+GET http://localhost:8081/api/configuration/availabilities/20000000-0000-0000-0000-000000000001
+Authorization: Bearer {{adminToken}}
+
+### Disponibilidad de Jorge Castillo (sin configurar): responde 204
+GET http://localhost:8081/api/configuration/availabilities/20000000-0000-0000-0000-000000000004
+Authorization: Bearer {{adminToken}}
+
+### Configurar a Jorge Castillo: lunes y miércoles de 8:00 a 12:00, cada 45 minutos
+PUT http://localhost:8081/api/configuration/availabilities/20000000-0000-0000-0000-000000000004
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "workingDays": ["MONDAY", "WEDNESDAY"],
+  "startTime": "08:00",
+  "endTime": "12:00",
+  "slotMinutes": 45
+}
+
+### Hora de fin anterior a la de inicio: responde 400
+PUT http://localhost:8081/api/configuration/availabilities/20000000-0000-0000-0000-000000000004
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "workingDays": ["MONDAY"],
+  "startTime": "12:00",
+  "endTime": "08:00",
+  "slotMinutes": 30
+}
+
+### Un paciente no puede ver la configuración: responde 403
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "paciente1@gmail.com",
+  "password": "paciente1-1234"
+}
+
+> {% client.global.set("patientToken", response.body.token); %}
+
+###
+GET http://localhost:8081/api/configuration/scheduling-window
+Authorization: Bearer {{patientToken}}
