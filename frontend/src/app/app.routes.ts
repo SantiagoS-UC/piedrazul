@@ -4,9 +4,6 @@ import { authGuard, guestGuard, roleGuard } from './core/auth/auth-guards';
 import { AuthSession } from './core/auth/auth-session';
 import { AppShell } from './shared/ui/templates/app-shell/app-shell';
 
-const comingSoon = () =>
-  import('./features/common/coming-soon-page/coming-soon-page').then((m) => m.ComingSoonPage);
-
 export const routes: Routes = [
   {
     path: 'login',
@@ -36,8 +33,10 @@ export const routes: Routes = [
         path: 'scheduler/appointments',
         title: 'Listado de citas | Piedrazul',
         canActivate: [roleGuard('SCHEDULER')],
-        loadComponent: comingSoon,
-        data: { heading: 'Listado de citas' },
+        loadComponent: () =>
+          import('./features/scheduler/appointment-list-page/appointment-list-page').then(
+            (m) => m.AppointmentListPage,
+          ),
       },
       {
         path: 'admin/configuration',

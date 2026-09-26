@@ -44,3 +44,22 @@ Content-Type: application/json
   "professionalId": "20000000-0000-0000-0000-000000000001",
   "date": "2026-09-30"
 }
+
+### HU-04: inicio de sesión del agendador (guarda el token en {{schedulerToken}})
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "agendador@gmail.com",
+  "password": "agendador-1234"
+}
+
+> {% client.global.set("schedulerToken", response.body.token); %}
+
+### Citas de Laura Martínez en una fecha, ordenadas por hora
+GET http://localhost:8081/api/appointments/agenda?professionalId=20000000-0000-0000-0000-000000000001&date=2026-09-29
+Authorization: Bearer {{schedulerToken}}
+
+### Un paciente no puede ver el listado: responde 403
+GET http://localhost:8081/api/appointments/agenda?professionalId=20000000-0000-0000-0000-000000000001&date=2026-09-29
+Authorization: Bearer {{patientToken}}
