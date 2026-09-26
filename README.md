@@ -13,7 +13,7 @@ Software III, Universidad del Cauca, 2026.2.
 piedrazul/
 ├── backend/     API REST (monolito modular)
 ├── frontend/    SPA en Angular
-├── docs/        documento de arquitectura, diagramas y prototipos
+├── docs/        diagramas C4 en PlantUML (el resto de la documentación está en Drive)
 └── docker-compose.yml
 ```
 
@@ -37,7 +37,7 @@ Un módulo solo puede usar los tipos del paquete raíz de otro; `ModularityTest`
 - JDK 21
 - Node.js LTS y Angular CLI (`npm install -g @angular/cli`)
 - Docker
-- IntelliJ IDEA con el plugin plantuml4idea
+- IntelliJ IDEA (el plugin PlantUML Integration sirve para ver los diagramas de `docs/`)
 
 ## Cómo ejecutarlo
 
@@ -58,7 +58,27 @@ Un módulo solo puede usar los tipos del paquete raíz de otro; `ModularityTest`
    ```
    Queda en `http://localhost:4200`.
 
-Pruebas del backend: `./mvnw test`.
+## Pruebas
+
+- Backend, desde `backend/`: `./mvnw test`. Incluye `ModularityTest`, que falla si un módulo usa
+  clases internas de otro.
+- Frontend, desde `frontend/`: `npx ng test --watch=false`.
+- La API se puede probar a mano con los archivos de `backend/http/`, que se ejecutan desde IntelliJ.
+
+## Usuarios de prueba
+
+Los crean las migraciones de Flyway. Todas las contraseñas siguen el formato `<usuario>-1234`.
+
+| Rol | Correo | Contraseña |
+|---|---|---|
+| Administrador | admin@gmail.com | admin-1234 |
+| Agendador | agendador@gmail.com | agendador-1234 |
+| Paciente | paciente1@gmail.com | paciente1-1234 |
+| Paciente | paciente2@gmail.com | paciente2-1234 |
+
+También se cargan ocho profesionales, dos por especialidad, y la disponibilidad de seis de ellos.
+Jorge Castillo y Mauricio López quedan sin configurar a propósito, para mostrar que un profesional
+sin disponibilidad no aparece al agendar.
 
 ## Convenciones
 
