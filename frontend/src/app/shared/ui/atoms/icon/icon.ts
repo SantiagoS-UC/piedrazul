@@ -30,6 +30,17 @@ const ICONS = {
   ],
   lock: ['M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z', 'M7 11V7a5 5 0 0 1 10 0v4'],
   clock: ['M2 12a10 10 0 1 0 20 0a10 10 0 1 0 -20 0', 'M12 6v6l4 2'],
+  check: ['M20 6 9 17l-5-5'],
+  'chevron-left': ['m15 18-6-6 6-6'],
+  'chevron-right': ['m9 18 6-6-6-6'],
+  user: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'M8 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0'],
+  stethoscope: [
+    'M11 2v2',
+    'M5 2v2',
+    'M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1',
+    'M8 15a6 6 0 0 0 12 0v-3',
+    'M18 10a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
+  ],
 } satisfies Record<string, string[]>;
 
 export type IconName = keyof typeof ICONS;

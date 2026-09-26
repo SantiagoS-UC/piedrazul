@@ -33,6 +33,6 @@ export class ProfessionalsApi {
 }
 
 /** "Martínez, Laura", para listas ordenadas por apellido. */
-export function lastNameFirst(professional: Professional): string {
+export function lastNameFirst(professional: Pick<Professional, 'firstName' | 'lastName'>): string {
   return `${professional.lastName}, ${professional.firstName}`;
 }

@@ -29,8 +29,8 @@ export const routes: Routes = [
         path: 'patient/book-appointment',
         title: 'Agendar cita | Piedrazul',
         canActivate: [roleGuard('PATIENT')],
-        loadComponent: comingSoon,
-        data: { heading: 'Agendar cita' },
+        loadComponent: () =>
+          import('./features/patient/book-appointment-page/book-appointment-page').then((m) => m.BookAppointmentPage),
       },
       {
         path: 'scheduler/appointments',

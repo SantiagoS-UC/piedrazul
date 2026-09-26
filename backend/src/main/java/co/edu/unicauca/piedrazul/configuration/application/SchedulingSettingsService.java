@@ -5,6 +5,7 @@ import co.edu.unicauca.piedrazul.configuration.SchedulingSettings;
 import co.edu.unicauca.piedrazul.configuration.domain.ProfessionalAvailability;
 import co.edu.unicauca.piedrazul.configuration.domain.ProfessionalAvailabilityRepository;
 import co.edu.unicauca.piedrazul.configuration.domain.SchedulingWindowRepository;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,11 @@ public class SchedulingSettingsService implements SchedulingSettings {
     @Override
     public int schedulingWindowWeeks() {
         return windowRepository.current().weeks();
+    }
+
+    @Override
+    public LocalDate lastBookableDate(LocalDate today) {
+        return windowRepository.current().lastBookableDate(today);
     }
 
     @Override
