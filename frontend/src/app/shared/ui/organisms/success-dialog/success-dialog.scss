@@ -1,0 +1,30 @@
+dialog {
+  width: min(28rem, calc(100% - 2rem));
+  padding: 2rem;
+  text-align: center;
+  border: none;
+  border-radius: var(--pz-radius-lg);
+  box-shadow: var(--pz-shadow-card);
+
+  &::backdrop {
+    background: rgb(15 23 42 / 45%);
+  }
+}
+
+.icon {
+  display: inline-flex;
+  padding: 1rem;
+  color: var(--pz-color-success);
+  background: var(--pz-color-success-soft);
+  border-radius: 50%;
+}
+
+h2 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+p {
+  margin-bottom: 1.5rem;
+  color: var(--pz-color-text-muted);
+}

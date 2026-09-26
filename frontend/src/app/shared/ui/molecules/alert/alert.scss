@@ -1,0 +1,31 @@
+:host {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  font-weight: 500;
+  border: 2px solid;
+  border-radius: var(--pz-radius-md);
+}
+
+:host(.alert--error) {
+  color: var(--pz-color-danger);
+  background: var(--pz-color-danger-soft);
+  border-color: #fecaca;
+}
+
+:host(.alert--success) {
+  color: var(--pz-color-success);
+  background: var(--pz-color-success-soft);
+  border-color: #bbf7d0;
+}
+
+:host(.alert--info) {
+  color: var(--pz-color-info);
+  background: var(--pz-color-info-soft);
+  border-color: #bfdbfe;
+}
+
+.message {
+  color: var(--pz-color-text);
+}
