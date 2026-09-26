@@ -1,0 +1,49 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  height: 100%;
+  padding: 1.5rem 1rem;
+  background: var(--pz-color-surface);
+  border-right: 1px solid #e2e8f0;
+}
+
+nav {
+  flex: 1;
+}
+
+.section {
+  margin: 0 0 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pz-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+app-user-card {
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+@media (width < 900px) {
+  :host {
+    gap: 1rem;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .section {
+    display: none;
+  }
+}
