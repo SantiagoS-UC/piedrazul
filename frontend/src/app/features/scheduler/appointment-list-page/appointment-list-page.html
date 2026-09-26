@@ -1,0 +1,75 @@
+<app-page-header
+  heading="Listado de citas"
+  description="Consulta las citas de un médico o terapista en una fecha."
+/>
+
+<form class="card filters" [formGroup]="form" (ngSubmit)="search()" novalidate aria-label="Filtros de búsqueda">
+  <app-form-field
+    label="Profesional"
+    fieldId="agenda-professional"
+    required
+    hint="Ordenados alfabéticamente por apellido."
+    [error]="error('professionalId')"
+  >
+    <select
+      appFieldControl
+      id="agenda-professional"
+      formControlName="professionalId"
+      [invalid]="!!error('professionalId')"
+      [describedBy]="describedBy('agenda-professional', true)"
+    >
+      <option value="">Selecciona un profesional</option>
+      @for (professional of professionals(); track professional.id) {
+        <option [value]="professional.id">
+          {{ lastNameFirst(professional) }} · {{ professional.specialtyName }}
+        </option>
+      }
+    </select>
+  </app-form-field>
+
+  <app-form-field label="Fecha" fieldId="agenda-date" required hint="Por defecto, hoy." [error]="error('date')">
+    <input
+      appFieldControl
+      id="agenda-date"
+      type="date"
+      formControlName="date"
+      [invalid]="!!error('date')"
+      [describedBy]="describedBy('agenda-date', true)"
+    />
+  </app-form-field>
+
+  <button appButton type="submit" class="search" [loading]="loading()" [disabled]="loading()">Buscar</button>
+</form>
+
+@if (errorMessage()) {
+  <app-alert type="error">{{ errorMessage() }}</app-alert>
+}
+
+@if (agenda(); as result) {
+  <section class="card results" aria-labelledby="results-title" aria-live="polite">
+    <div class="results-header">
+      <div>
+        <h2 id="results-title">{{ resultTitle() }}</h2>
+        <p class="specialty">{{ result.professional.specialtyName }}</p>
+      </div>
+      <p class="total">
+        <span class="total-number">{{ result.total }}</span>
+        {{ result.total === 1 ? 'cita' : 'citas' }}
+      </p>
+    </div>
+
+    @if (result.total === 0) {
+      <app-alert type="info">No hay citas para este profesional en esta fecha.</app-alert>
+    } @else {
+      <div class="order">
+        <label for="agenda-order">Ordenar por</label>
+        <select appFieldControl id="agenda-order" [value]="order()" (change)="changeOrder($any($event.target).value)">
+          @for (option of orders; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </div>
+      <app-appointment-table [appointments]="result.appointments" [order]="order()" [caption]="resultTitle()" />
+    }
+  </section>
+}
