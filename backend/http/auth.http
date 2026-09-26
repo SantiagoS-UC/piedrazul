@@ -1,0 +1,65 @@
+### Peticiones de prueba del módulo identity. Se ejecutan con el ▶ de cada una en IntelliJ.
+### El backend debe estar corriendo (puerto 8081) con la base de datos de docker-compose.
+
+### Inicio de sesión del administrador (usuario inicial)
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@gmail.com",
+  "password": "admin-1234"
+}
+
+### Inicio de sesión con contraseña incorrecta: responde 401 con mensaje genérico
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@gmail.com",
+  "password": "otra-1234"
+}
+
+### Registro de un paciente nuevo
+POST http://localhost:8081/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Luisa",
+  "middleName": "Fernanda",
+  "firstLastName": "Paz",
+  "secondLastName": "Ortiz",
+  "documentType": "CC",
+  "documentNumber": "1061000003",
+  "birthDate": "1965-07-20",
+  "gender": "FEMALE",
+  "phone": "3151112233",
+  "email": "luisa.paz@gmail.com",
+  "password": "luisa-1234",
+  "passwordConfirmation": "luisa-1234"
+}
+
+### Registro con campos vacíos: responde 400 con el mensaje de cada campo
+POST http://localhost:8081/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "email": "correo-invalido"
+}
+
+### Registro con un documento ya existente (paciente1): responde 409
+POST http://localhost:8081/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Otra",
+  "firstLastName": "Persona",
+  "documentType": "CC",
+  "documentNumber": "1061000001",
+  "birthDate": "1970-01-01",
+  "gender": "OTHER",
+  "phone": "3000000000",
+  "email": "otra.persona@gmail.com",
+  "password": "otra-1234",
+  "passwordConfirmation": "otra-1234"
+}

@@ -12,7 +12,19 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  flyway:
+    # Cada módulo versiona sus migraciones en su propia carpeta y rango (identity 1.x,
+    # professionals 2.x, configuration 3.x, appointments 4.x). Como se desarrollan en paralelo,
+    # una migración de menor versión puede llegar después de otra ya aplicada.
+    out-of-order: true
 
 server:
   # 8081 y no 8080 porque algunos equipos ya tienen servicios del sistema escuchando en 8080.
   port: ${SERVER_PORT:8081}
+
+piedrazul:
+  security:
+    jwt:
+      # Solo para desarrollo. En cualquier otro entorno se define JWT_SECRET (mínimo 32 caracteres).
+      secret: ${JWT_SECRET:piedrazul-dev-secret-key-change-me-2026}
+      expiration: 2h
