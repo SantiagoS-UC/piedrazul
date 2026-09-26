@@ -1,0 +1,160 @@
+<app-page-header heading="Agendar cita" description="Sigue los pasos para reservar tu cita. Puedes volver atrás en cualquier momento." />
+
+@if (booked(); as appointment) {
+  <section class="card done" aria-labelledby="booked-title">
+    <span class="done-icon"><app-icon name="check-circle" [size]="48" /></span>
+    <h2 id="booked-title" #stepHeading tabindex="-1">¡Tu cita quedó agendada!</h2>
+    <p class="lead">
+      Te esperamos el {{ weekdayDate(appointment.date) }} a las {{ formatTime(appointment.time) }}
+    </p>
+    <app-booking-summary
+      [specialtyName]="appointment.professional.specialtyName"
+      [professionalName]="lastNameFirst(appointment.professional)"
+      [date]="appointment.date"
+      [time]="appointment.time"
+      [durationMinutes]="appointment.durationMinutes"
+    />
+    <div class="actions end">
+      <button appButton type="button" (click)="startOver()">Agendar otra cita</button>
+    </div>
+  </section>
+} @else {
+  <app-step-indicator [steps]="steps" [current]="step()" />
+
+  <section class="card" aria-labelledby="step-title">
+    <!-- Arriba, para que se vea de inmediato si el paciente vuelve a este paso por un horario ocupado. -->
+    @if (errorMessage()) {
+      <app-alert type="error">{{ errorMessage() }}</app-alert>
+    }
+
+    @switch (step()) {
+      @case (0) {
+        <header>
+          <h2 id="step-title" #stepHeading tabindex="-1">¿Qué tipo de atención necesitas?</h2>
+          <p>Elige la especialidad.</p>
+        </header>
+        <div class="choices" role="group" aria-labelledby="step-title">
+          @for (option of specialties(); track option.code) {
+            <button
+              appChoice
+              icon="stethoscope"
+              [label]="option.name"
+              [detail]="specialtyDetail[option.code]"
+              [selected]="specialty()?.code === option.code"
+              (click)="chooseSpecialty(option)"
+            ></button>
+          }
+        </div>
+      }
+
+      @case (1) {
+        <header>
+          <h2 id="step-title" #stepHeading tabindex="-1">Elige el profesional</h2>
+          <p>Profesionales de {{ specialty()?.name }} con horarios disponibles, ordenados por apellido.</p>
+        </header>
+        @if (loading()) {
+          <p>Buscando profesionales…</p>
+        } @else if (professionals().length === 0 && !errorMessage()) {
+          <app-alert type="info">
+            Por ahora no hay profesionales de {{ specialty()?.name }} con horarios disponibles.
+            Vuelve al paso anterior y elige otra especialidad.
+          </app-alert>
+        } @else {
+          <div class="choices" role="group" aria-labelledby="step-title">
+            @for (option of professionals(); track option.id) {
+              <button
+                appChoice
+                icon="user"
+                [label]="lastNameFirst(option)"
+                [detail]="option.specialtyName"
+                [selected]="professional()?.id === option.id"
+                (click)="chooseProfessional(option)"
+              ></button>
+            }
+          </div>
+        }
+      }
+
+      @case (2) {
+        <header>
+          <h2 id="step-title" #stepHeading tabindex="-1">Elige la fecha y la hora</h2>
+          <p>
+            @if (professional(); as chosen) {
+              Horarios de {{ lastNameFirst(chosen) }}.
+            }
+            Los días en gris no están disponibles.
+          </p>
+        </header>
+        @if (loading()) {
+          <p>Cargando el calendario…</p>
+        } @else if (calendar(); as bookingCalendar) {
+          <div class="date-time">
+            <div class="panel">
+              <h3 class="panel-title">1. Elige el día</h3>
+              <app-month-calendar
+                [minDate]="bookingCalendar.firstDate"
+                [maxDate]="bookingCalendar.lastDate"
+                [isEnabled]="isDateEnabled()"
+                [selected]="date()"
+                (dateSelected)="chooseDate($event)"
+              />
+            </div>
+            <div class="panel" aria-live="polite">
+              <h3 class="panel-title">2. Elige la hora</h3>
+              @if (!date()) {
+                <p class="muted">Primero elige un día en el calendario.</p>
+              } @else if (loadingSlots()) {
+                <p>Buscando horarios…</p>
+              } @else {
+                <p class="selected-date">{{ longDate() }}</p>
+                @if (noFreeSlots()) {
+                  <app-alert type="info">
+                    No quedan horarios libres este día. Elige otra fecha en el calendario.
+                  </app-alert>
+                }
+                <app-slot-picker [slots]="slots()" [selected]="time()" (timeSelected)="chooseTime($event)" />
+              }
+            </div>
+          </div>
+        }
+      }
+
+      @case (3) {
+        <header>
+          <h2 id="step-title" #stepHeading tabindex="-1">Revisa y confirma tu cita</h2>
+          <p>Verifica que los datos sean correctos antes de confirmar.</p>
+        </header>
+        @if (professional(); as chosen) {
+          <app-booking-summary
+            [specialtyName]="chosen.specialtyName"
+            [professionalName]="lastNameFirst(chosen)"
+            [date]="date() ?? ''"
+            [time]="time() ?? ''"
+            [durationMinutes]="calendar()?.slotMinutes ?? 0"
+          />
+        }
+      }
+    }
+
+    @if (stepError()) {
+      <app-alert type="error">{{ stepError() }}</app-alert>
+    }
+
+    <div class="actions">
+      @if (step() > 0) {
+        <button appButton variant="secondary" type="button" [disabled]="booking()" (click)="previous()">
+          <app-icon name="chevron-left" /> Anterior
+        </button>
+      }
+      @if (step() < steps.length - 1) {
+        <button appButton type="button" class="primary" (click)="next()">
+          Siguiente <app-icon name="chevron-right" />
+        </button>
+      } @else {
+        <button appButton type="button" class="primary" [loading]="booking()" [disabled]="booking()" (click)="confirm()">
+          Confirmar cita
+        </button>
+      }
+    </div>
+  </section>
+}

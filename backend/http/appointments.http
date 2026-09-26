@@ -1,0 +1,46 @@
+### Peticiones de prueba del agendamiento de citas (HU-03).
+### Ejecuta primero el inicio de sesión: guarda el token y las demás peticiones lo usan.
+
+### Inicio de sesión de la paciente Ana María Gómez (guarda el token en {{patientToken}})
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "paciente1@gmail.com",
+  "password": "paciente1-1234"
+}
+
+> {% client.global.set("patientToken", response.body.token); %}
+
+### Paso 2: médicos de medicina general que se pueden agendar
+GET http://localhost:8081/api/appointments/bookable-professionals?specialty=GENERAL_MEDICINE
+Authorization: Bearer {{patientToken}}
+
+### Paso 3: calendario de Laura Martínez (días de atención y ventana)
+GET http://localhost:8081/api/appointments/bookable-professionals/20000000-0000-0000-0000-000000000001/calendar
+Authorization: Bearer {{patientToken}}
+
+### Paso 3: franjas de un día. Cambia la fecha por un día que atienda dentro de la ventana
+GET http://localhost:8081/api/appointments/bookable-professionals/20000000-0000-0000-0000-000000000001/slots?date=2026-09-30
+Authorization: Bearer {{patientToken}}
+
+### Paso 4: agendar. La segunda vez responde 409 porque la paciente ya tiene esa cita
+POST http://localhost:8081/api/appointments
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "professionalId": "20000000-0000-0000-0000-000000000001",
+  "date": "2026-09-30",
+  "time": "08:00"
+}
+
+### Datos incompletos: responde 400 con el campo que falta
+POST http://localhost:8081/api/appointments
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "professionalId": "20000000-0000-0000-0000-000000000001",
+  "date": "2026-09-30"
+}

@@ -20,3 +20,24 @@ export function formatLongDate(date: Date): string {
 export function formatShortDate(date: Date): string {
   return formatDate(date, 'dd/MM/yyyy', LOCALE);
 }
+
+/** "miércoles, 30 de septiembre de 2026": la forma más clara de confirmar una cita. */
+export function formatWeekdayDate(date: Date): string {
+  return formatDate(date, "EEEE, d 'de' MMMM 'de' y", LOCALE);
+}
+
+/**
+ * Convierte "2026-09-30" en una fecha local. new Date('2026-09-30') la interpretaría en UTC y en
+ * Colombia mostraría el día anterior.
+ */
+export function parseIsoDate(iso: string): Date {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/** Fecha local en el formato aaaa-mm-dd que usa la API. */
+export function toIsoDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}

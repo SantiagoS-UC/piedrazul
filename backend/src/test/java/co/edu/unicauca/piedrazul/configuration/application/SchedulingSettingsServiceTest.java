@@ -9,6 +9,7 @@ import co.edu.unicauca.piedrazul.configuration.domain.ProfessionalAvailability;
 import co.edu.unicauca.piedrazul.configuration.domain.ProfessionalAvailabilityRepository;
 import co.edu.unicauca.piedrazul.configuration.domain.SchedulingWindow;
 import co.edu.unicauca.piedrazul.configuration.domain.SchedulingWindowRepository;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Optional;
 import java.util.Set;
@@ -41,6 +42,14 @@ class SchedulingSettingsServiceTest {
         when(windowRepository.current()).thenReturn(new SchedulingWindow(3));
 
         assertThat(service.schedulingWindowWeeks()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Calcula el último día agendable con la ventana vigente")
+    void computesLastBookableDate() {
+        when(windowRepository.current()).thenReturn(new SchedulingWindow(2));
+
+        assertThat(service.lastBookableDate(LocalDate.of(2026, 9, 28))).isEqualTo(LocalDate.of(2026, 10, 12));
     }
 
     @Test
