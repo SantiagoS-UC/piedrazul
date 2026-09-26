@@ -41,10 +41,29 @@ export const routes: Routes = [
       },
       {
         path: 'admin/configuration',
-        title: 'Configuración | Piedrazul',
         canActivate: [roleGuard('ADMIN')],
-        loadComponent: comingSoon,
-        data: { heading: 'Configuración del sistema' },
+        children: [
+          {
+            path: '',
+            title: 'Configuración | Piedrazul',
+            loadComponent: () =>
+              import('./features/admin/configuration-page/configuration-page').then((m) => m.ConfigurationPage),
+          },
+          {
+            path: 'scheduling-window',
+            title: 'Ventana de agendamiento | Piedrazul',
+            loadComponent: () =>
+              import('./features/admin/scheduling-window-page/scheduling-window-page').then(
+                (m) => m.SchedulingWindowPage,
+              ),
+          },
+          {
+            path: 'availability',
+            title: 'Disponibilidad por profesional | Piedrazul',
+            loadComponent: () =>
+              import('./features/admin/availability-page/availability-page').then((m) => m.AvailabilityPage),
+          },
+        ],
       },
       {
         path: 'forbidden',

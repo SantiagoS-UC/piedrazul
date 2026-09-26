@@ -1,5 +1,6 @@
 import { FormControl, FormGroup } from '@angular/forms';
 import {
+  atLeastOne,
   documentNumber,
   emailFormat,
   matchesField,
@@ -7,6 +8,7 @@ import {
   passwordStrength,
   personName,
   phoneNumber,
+  timeAfter,
   toIsoDate,
 } from './validators';
 
@@ -76,5 +78,24 @@ describe('Validadores del formulario de registro', () => {
 
   it('toIsoDate da formato aaaa-mm-dd con ceros a la izquierda', () => {
     expect(toIsoDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+});
+
+describe('Validadores de configuración', () => {
+  it('atLeastOne exige al menos un elemento', () => {
+    expect(atLeastOne()(new FormControl(['MONDAY']))).toBeNull();
+    expect(atLeastOne()(new FormControl([]))).toEqual({ atLeastOne: true });
+  });
+
+  it('timeAfter exige que la hora de fin sea posterior a la de inicio', () => {
+    const group = new FormGroup({
+      startTime: new FormControl('08:00'),
+      endTime: new FormControl('12:00', timeAfter('startTime')),
+    });
+    group.controls.endTime.updateValueAndValidity();
+    expect(group.controls.endTime.errors).toBeNull();
+
+    group.controls.endTime.setValue('08:00');
+    expect(group.controls.endTime.errors).toEqual({ timeNotAfter: true });
   });
 });
