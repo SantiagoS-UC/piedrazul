@@ -109,4 +109,4 @@ git push -u origin feature/patient-registration
 ```
 
 Luego se abre un Pull Request de la feature hacia `develop` en GitHub. Otro integrante lo revisa
-y lo aprueba antes de hacer merge. Después del merge se puede borrar la rama.
+y lo aprueba antes de hacer merge. Después del merge se puede borrar la rama
