@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Reúne lo que el agendamiento necesita de los módulos professionals y configuration, traducido
- * al modelo de este módulo.
+ * al modelo de este módulo
  */
 @Component
 class BookingSchedules {
