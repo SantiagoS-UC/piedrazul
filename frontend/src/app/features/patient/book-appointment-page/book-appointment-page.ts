@@ -200,7 +200,7 @@ export class BookAppointmentPage {
   }
 
   // Si el horario ya no está libre o dejó de ser válido, se vuelve a la elección de hora con las
-  // franjas actualizadas para que el paciente elija otra sin empezar de nuevo.
+  // franjas actualizadas para que el paciente elija otra sin empezar de nuevo
   private handleBookingError(error: unknown): void {
     const apiError = toApiError(error);
     this.errorMessage.set(apiError.message);
