@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /**
  * Una cita del listado con los datos de contacto del paciente. El paciente puede faltar si su
- * registro ya no existe; la cita se muestra igual para que el total cuadre.
+ * registro ya no existe; la cita se muestra igual para que el total cuadre
  */
 public record AgendaEntry(Appointment appointment, Optional<PatientSummary> patient) {
 }
