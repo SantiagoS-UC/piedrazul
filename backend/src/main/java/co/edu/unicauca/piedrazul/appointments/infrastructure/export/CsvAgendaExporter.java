@@ -15,9 +15,7 @@ import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
 /**
- * Agenda en CSV pensado para abrirse con doble clic en Excel configurado en español: separador
- * punto y coma (la coma es el separador decimal en Colombia) y BOM de UTF-8 para que las tildes y
- * la ñ se vean bien.
+ * Separado por punto y coma y con BOM de UTF-8, que es lo que espera Excel configurado en español.
  */
 @Component
 class CsvAgendaExporter implements AgendaExporter {
@@ -67,13 +65,12 @@ class CsvAgendaExporter implements AgendaExporter {
         return safe;
     }
 
-    // Inyección de fórmulas (OWASP): Excel ejecuta como fórmula una celda que empieza por =, +, - o @.
-    // Con un apóstrofo al inicio se muestra como texto.
+    // Inyección de fórmulas (OWASP): Excel interpreta como fórmula una celda que empieza por =, +, - o @.
     private static String neutralizeFormula(String value) {
         return !value.isEmpty() && "=+-@\t\r".indexOf(value.charAt(0)) >= 0 ? "'" + value : value;
     }
 
-    // citas_laura-martinez_2026-11-03.csv: sin tildes ni espacios para evitar problemas al descargar.
+    // Sin tildes ni espacios, por ejemplo citas_laura-martinez_2026-11-03.csv.
     static String fileName(ProfessionalAgenda agenda) {
         String professional = Stream.of(agenda.professional().firstName(), agenda.professional().lastName())
                 .map(CsvAgendaExporter::slug)

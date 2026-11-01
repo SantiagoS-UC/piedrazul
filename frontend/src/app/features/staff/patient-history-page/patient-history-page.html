@@ -1,0 +1,75 @@
+<app-page-header
+  heading="Historial de paciente"
+  description="Consulta las citas que un paciente ha tenido y tiene programadas con todos los profesionales."
+/>
+
+<section class="card" aria-label="Buscar paciente">
+  <app-form-field
+    label="Número de documento"
+    fieldId="history-document"
+    hint="Escribe al menos 3 dígitos y elige al paciente en la lista."
+  >
+    <app-combobox
+      inputId="history-document"
+      placeholder="Ej. 1061000001"
+      [describedBy]="describedBy('history-document', true)"
+      [options]="options()"
+      [loading]="searching()"
+      [noResultsText]="noResultsText()"
+      (queryChange)="search($event)"
+      (selected)="choose($event)"
+      (submitted)="submitTyped($event)"
+    />
+  </app-form-field>
+  @if (hintMessage()) {
+    <app-alert type="info">{{ hintMessage() }}</app-alert>
+  }
+</section>
+
+@if (errorMessage()) {
+  <app-alert type="error">{{ errorMessage() }}</app-alert>
+}
+
+@if (loadingHistory()) {
+  <p class="loading"><app-spinner /> Cargando historial…</p>
+} @else if (history(); as result) {
+  <section class="card patient" aria-labelledby="patient-name">
+    <div class="identity">
+      <span class="avatar" aria-hidden="true">{{ initials(result.patient) }}</span>
+      <div>
+        <h2 id="patient-name">{{ result.patient.givenNames }} {{ result.patient.lastNames }}</h2>
+        <p class="contact">
+          {{ result.patient.documentType }} {{ result.patient.documentNumber }} · Tel.
+          {{ phone(result.patient.phone) }}
+        </p>
+      </div>
+    </div>
+    <dl class="stats">
+      <div class="stat">
+        <dt>Total de citas</dt>
+        <dd>{{ result.total }}</dd>
+      </div>
+      <div class="stat stat--upcoming">
+        <dt>Próximas</dt>
+        <dd>{{ result.upcoming }}</dd>
+      </div>
+      <div class="stat">
+        <dt>Pasadas</dt>
+        <dd>{{ result.past }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="card" aria-labelledby="history-title" aria-live="polite">
+    <h2 id="history-title">Citas</h2>
+    @if (result.total === 0) {
+      <app-alert type="info">Este paciente aún no tiene citas registradas.</app-alert>
+    } @else {
+      <app-history-table [appointments]="result.appointments" [caption]="caption()" />
+    }
+  </section>
+} @else {
+  <section class="card empty">
+    <p>Busca un paciente por su número de documento para ver su historial de citas.</p>
+  </section>
+}

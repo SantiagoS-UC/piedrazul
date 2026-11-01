@@ -6,11 +6,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Quién hace la consulta. El rol ya lo validó {@code @PreAuthorize}; aquí viven las reglas que
- * dependen de la persona, como que un profesional solo ve su propia agenda.
+ * Usuario que hace la consulta, tomado del token.
  *
- * @param userId       identificador de la cuenta, tomado del token
- * @param professional si es médico o terapista; si no, es el agendador
+ * @param professional {@code true} para médicos y terapistas, {@code false} para el agendador
  */
 public record Requester(UUID userId, boolean professional) {
 
@@ -27,8 +25,7 @@ public record Requester(UUID userId, boolean professional) {
     }
 
     /**
-     * Decide de qué profesional es la agenda que se consulta. El profesional no necesita indicar
-     * su id porque es el de su cuenta; el agendador sí debe elegir uno.
+     * El profesional solo puede ver su propia agenda; el agendador debe indicar de quién.
      *
      * @param requestedProfessionalId puede ser {@code null}
      */

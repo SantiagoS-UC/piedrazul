@@ -51,6 +51,13 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
     }
 
     @Override
+    public List<Appointment> findByPatient(UUID patientId) {
+        return jpaRepository.findByPatientIdOrderByAppointmentDateDescStartTimeDesc(patientId).stream()
+                .map(AppointmentEntity::toDomain)
+                .toList();
+    }
+
+    @Override
     public List<Appointment> findByPatientAndDate(UUID patientId, LocalDate date) {
         return jpaRepository.findByPatientIdAndAppointmentDateOrderByStartTime(patientId, date).stream()
                 .map(AppointmentEntity::toDomain)

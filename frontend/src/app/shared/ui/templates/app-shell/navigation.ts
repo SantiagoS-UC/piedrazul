@@ -7,7 +7,11 @@ export const NAVIGATION: Record<Role, NavLink[]> = {
   SCHEDULER: [
     { label: 'Listar citas', icon: 'clipboard-list', path: '/scheduler/appointments' },
     { label: 'Exportar citas', icon: 'download', path: '/staff/export-appointments' },
+    { label: 'Historial de paciente', icon: 'history', path: '/staff/patient-history' },
   ],
-  PROFESSIONAL: [{ label: 'Exportar citas', icon: 'download', path: '/staff/export-appointments' }],
+  PROFESSIONAL: [
+    { label: 'Exportar citas', icon: 'download', path: '/staff/export-appointments' },
+    { label: 'Historial de paciente', icon: 'history', path: '/staff/patient-history' },
+  ],
   ADMIN: [{ label: 'Configuración', icon: 'sliders', path: '/admin/configuration' }],
 };

@@ -48,6 +48,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'staff/patient-history',
+        title: 'Historial de paciente | Piedrazul',
+        canActivate: [roleGuard('SCHEDULER', 'PROFESSIONAL')],
+        loadComponent: () =>
+          import('./features/staff/patient-history-page/patient-history-page').then((m) => m.PatientHistoryPage),
+      },
+      {
         path: 'admin/configuration',
         canActivate: [roleGuard('ADMIN')],
         children: [

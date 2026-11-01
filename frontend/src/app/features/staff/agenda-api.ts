@@ -32,12 +32,11 @@ export interface Agenda {
 export class AgendaApi {
   private readonly http = inject(HttpClient);
 
-  /** Para el profesional se omite professionalId: el backend usa el de su cuenta. */
+  /** Sin professionalId, el backend usa la cuenta del profesional que hace la petición. */
   getAgenda(professionalId: string | null, date: string): Observable<Agenda> {
     return this.http.get<Agenda>('/api/appointments/agenda', { params: agendaParams(professionalId, date) });
   }
 
-  /** CSV de la agenda; el nombre del archivo llega en la cabecera Content-Disposition. */
   exportAgenda(professionalId: string | null, date: string): Observable<HttpResponse<Blob>> {
     return this.http.get('/api/appointments/agenda/export', {
       params: agendaParams(professionalId, date),

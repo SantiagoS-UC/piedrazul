@@ -19,8 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * HU-04: citas de un profesional en una fecha, con los datos de cada paciente. La usan el listado
- * del agendador y la exportación del agendador y del profesional.
+ * HU-04: citas de un profesional en una fecha con los datos de cada paciente.
  */
 @Service
 @Transactional(readOnly = true)

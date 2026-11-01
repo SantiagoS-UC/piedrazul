@@ -11,4 +11,9 @@ public interface PatientRepository {
     void save(Patient patient);
 
     List<Patient> findAllById(Collection<UUID> ids);
+
+    /**
+     * Pacientes cuyo número de documento empieza por {@code prefix}, ordenados por ese número.
+     */
+    List<Patient> findByDocumentNumberStartingWith(String prefix, int limit);
 }

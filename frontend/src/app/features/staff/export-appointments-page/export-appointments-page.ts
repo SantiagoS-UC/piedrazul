@@ -23,8 +23,7 @@ interface ExportedFile {
 }
 
 /**
- * RF4: el agendador o el profesional descargan en CSV las citas de un día. La vista previa se
- * actualiza sola al cambiar los filtros, para que sepan qué van a exportar antes de hacerlo.
+ * RF4: exportar en CSV las citas de un día, con vista previa.
  */
 @Component({
   selector: 'app-export-appointments-page',
@@ -38,7 +37,6 @@ export class ExportAppointmentsPage {
   private readonly destroyRef = inject(DestroyRef);
   protected readonly session = inject(AuthSession);
 
-  // El profesional no elige: siempre exporta su propia agenda.
   protected readonly isProfessional = this.session.role() === 'PROFESSIONAL';
 
   protected readonly form = inject(NonNullableFormBuilder).group({
@@ -100,7 +98,7 @@ export class ExportAppointmentsPage {
       });
   }
 
-  // switchMap descarta la respuesta anterior si el usuario cambia los filtros antes de que llegue.
+  // switchMap descarta la respuesta anterior si los filtros cambian antes de que llegue.
   private watchFilters(): void {
     this.form.valueChanges
       .pipe(

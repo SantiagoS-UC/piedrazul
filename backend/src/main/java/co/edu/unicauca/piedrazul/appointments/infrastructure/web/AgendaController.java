@@ -18,8 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * HU-04 y RF4: citas de un profesional en una fecha, en pantalla o como archivo CSV. El agendador
- * elige el profesional; el médico o terapista solo puede ver la suya y no necesita enviar su id.
+ * HU-04 y RF4: agenda de un profesional en pantalla o en CSV.
  */
 @RestController
 @RequestMapping("/api/appointments/agenda")
