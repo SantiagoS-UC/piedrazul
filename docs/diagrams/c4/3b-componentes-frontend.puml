@@ -1,0 +1,67 @@
+@startuml c4-3b-componentes-frontend
+!pragma layout smetana
+sprite $person [48x48/16z] {
+xTF14K1040LH6Kp-sQe-_wrH3O2-W0VOdHvHaTFaD2bEuj73DppMEnyRFO_Dztd_VVptz__NZnyIlCOvJOgJv7b2xEqFZNHtD7bxk1Rz--VHx_ruyEFDZsS_
+N_ny9CN9SHBwg6O
+}
+sprite $terminal [48x48/16z] OnW9O1JmawgUdqJbf6dW1mCIb0yw3GnaQ1YalgPTH5Fi_e5NFlISZj10VhJoOmACye4qzGoagMUWX_fHC0e
+sprite $component [48x48/16z] Oo0QZ09-Gc08gCVfEVgfntJtmAj7bg2_-e4F7_gdX-6MFaVJvsZw7FBrnSW3
+sprite $system [48x48/16z] OnWPO1JmumVegWa3LEKaQU0d3g2g9-mxD0xH6i1CGc1K_QZwKVMavIzIyo-2Ht61Gdc1HMBvEIJ1A
+
+!$PERSONA = "#white;line:2F7D1A;line.bold;text:2F7D1A"
+!$AZUL = "#white;line:1168BD;line.bold;text:1168BD"
+!$LIMITE = "#white;line:1168BD;text:1168BD"
+!$MODULO = "#white;line:1168BD;line.dashed;text:1168BD"
+!$EXTERNO = "#white;line:7A7A7A;line.bold;text:5C5C5C"
+
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam roundCorner 20
+skinparam wrapWidth 210
+skinparam defaultTextAlignment center
+skinparam componentStyle uml1
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
+skinparam ArrowThickness 1.3
+skinparam DatabaseBorderThickness 2
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam LegendBackgroundColor white
+skinparam LegendBorderColor #999999
+skinparam LegendFontColor #444444
+skinparam LegendFontSize 12
+
+title Diagrama de componentes: Aplicación web\n<size:12><color:#666666>Modelo C4, nivel 3</color></size>
+
+person "<size:15><b>Usuario</b></size>\n<size:10>[Persona]</size>" as usuario $PERSONA
+
+rectangle "<size:15><b>Aplicación web</b></size>\n<size:10>[Angular 22]</size>" as spa $LIMITE {
+  component "<size:14><b>Rutas y guardas</b></size>\n<size:10>[Angular Router]</size>\n\nAcceso por rol." as router $AZUL
+  component "<size:14><b>Páginas</b></size>\n<size:10>[Componentes Angular]</size>\n\nPaciente, personal y administrador." as pages $AZUL
+  component "<size:14><b>Biblioteca de UI</b></size>\n<size:10>[Atomic Design]</size>\n\nÁtomos, moléculas y organismos." as ui $AZUL
+  component "<size:14><b>Clientes de la API</b></size>\n<size:10>[HttpClient]</size>\n\nPeticiones al backend." as clients $AZUL
+  component "<size:14><b>Sesión</b></size>\n<size:10>[keycloak-js]</size>\n\nUsuario, rol y token." as session $AZUL
+}
+
+rectangle "<$terminal{scale=0.6,color=#1168BD}>\n<size:15><b>API de Piedrazul</b></size>\n<size:10>[Spring Boot 4]</size>" as api $AZUL
+rectangle "<$system{scale=0.6,color=#7A7A7A}>\n<size:15><b>Keycloak</b></size>\n<size:10>[Sistema externo]</size>" as keycloak $EXTERNO
+
+usuario -[dashed]-> router : "Navega"
+router -[dashed]-> pages : "Carga"
+router -[dashed]-> session : "Consulta el rol"
+pages -[dashed]-> ui : "Usa"
+pages -[dashed]-> clients : "Usa"
+clients -[dashed]-> session : "Obtiene el token"
+clients -[dashed]-> api : "JSON/HTTP, JWT"
+session -[dashed]-> keycloak : "Inicia sesión"
+
+legend right
+  <b>Convenciones</b>
+  <$person{scale=0.35,color=#2F7D1A}> Persona
+  <$terminal{scale=0.35,color=#1168BD}> Aplicación del lado del servidor
+  <$component{scale=0.35,color=#1168BD}> Componente
+  <$system{scale=0.35,color=#7A7A7A}> Sistema externo
+  <color:#444444>- - - ></color> Relación
+endlegend
+@enduml

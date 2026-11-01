@@ -1,0 +1,52 @@
+@startuml uml-2-proceso-exportar-citas
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam sequenceMessageAlign center
+skinparam ParticipantBackgroundColor white
+skinparam ParticipantBorderColor #1168BD
+skinparam ParticipantFontColor #1168BD
+skinparam DatabaseBackgroundColor white
+skinparam DatabaseBorderColor #1168BD
+skinparam DatabaseFontColor #1168BD
+skinparam ActorBackgroundColor white
+skinparam ActorBorderColor #2F7D1A
+skinparam ActorFontColor #2F7D1A
+skinparam SequenceLifeLineBorderColor #999999
+skinparam SequenceGroupBorderColor #666666
+autonumber
+title Vista de procesos: exportar citas\n<size:12><color:#666666>Modelo 4+1</color></size>
+
+actor "Profesional" as profesional
+participant "Aplicación web" as web
+participant "Keycloak" as keycloak
+participant "Spring Security" as security
+participant "AgendaController" as controller
+participant "ExportAgendaService" as service
+database "PostgreSQL" as db
+
+profesional -> web : Exportar CSV
+web -> keycloak : Renueva el token
+keycloak --> web : Token JWT
+web -> security : GET /agenda/export\n(Bearer token)
+security -> security : Valida token y rol
+security -> controller : export(fecha)
+controller -> service : export(requester, fecha)
+
+alt Su propia agenda
+  service -> db : Consulta citas
+  db --> service : Citas
+  service --> controller : Archivo CSV
+  controller --> web : 200 OK
+  web --> profesional : Descarga el archivo
+else Agenda de otro profesional
+  service --> controller : AccessForbiddenException
+  controller --> web : 403 Forbidden
+  web --> profesional : Mensaje de error
+end
+@enduml

@@ -1,0 +1,38 @@
+@startuml uml-4-fisica-despliegue
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam NodeBackgroundColor white
+skinparam NodeBorderColor #1168BD
+skinparam NodeFontColor #1168BD
+skinparam ArtifactBackgroundColor white
+skinparam ArtifactBorderColor #1168BD
+skinparam ArtifactFontColor #1168BD
+skinparam DatabaseBackgroundColor white
+skinparam DatabaseBorderColor #1168BD
+skinparam DatabaseFontColor #1168BD
+title Vista física: despliegue\n<size:12><color:#666666>Modelo 4+1</color></size>
+
+node "Navegador" as navegador {
+  artifact "Aplicación web" as spa
+}
+node "Servidor de Angular\n:4200" as ng
+node "JVM Java 21\n:8081" as jvm {
+  artifact "API de Piedrazul" as api
+}
+node "Docker" as docker {
+  database "PostgreSQL 17\n:5432" as postgres
+  node "Keycloak 26\n:8180" as keycloak
+}
+
+navegador --> ng : HTTP
+navegador --> keycloak : OpenID Connect
+ng --> api : HTTP /api
+api --> postgres : JDBC
+api --> keycloak : HTTP
+@enduml
