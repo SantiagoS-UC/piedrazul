@@ -6,6 +6,7 @@ Software III, Universidad del Cauca, 2026.2.
 - **Frontend:** SPA en Angular (TypeScript).
 - **Backend:** monolito modular en Java 21 con Spring Boot 4 y Spring Modulith.
 - **Base de datos:** PostgreSQL 17 en Docker, con migraciones de Flyway.
+- **Autenticación:** Keycloak 26 en Docker. Emite los tokens JWT y guarda usuarios, contraseñas y roles.
 
 ## Estructura del repositorio
 
@@ -41,10 +42,13 @@ Un módulo solo puede usar los tipos del paquete raíz de otro; `ModularityTest`
 
 ## Cómo ejecutarlo
 
-1. Levantar la base de datos desde la raíz del repositorio:
+1. Levantar la base de datos y Keycloak desde la raíz del repositorio:
    ```bash
    docker compose up -d
    ```
+   Keycloak tarda cerca de un minuto en arrancar la primera vez. La consola de administración
+   queda en `http://localhost:8180` (usuario `admin`, contraseña `admin`) y el realm de la
+   aplicación es `piedrazul`, que se importa desde `keycloak/piedrazul-realm.json`.
 2. Backend: ejecutar `PiedrazulApplication` desde IntelliJ, o desde `backend/`:
    ```bash
    ./mvnw spring-boot:run
@@ -58,6 +62,21 @@ Un módulo solo puede usar los tipos del paquete raíz de otro; `ModularityTest`
    ```
    Queda en `http://localhost:4200`.
 
+## Keycloak
+
+| Cliente | Uso |
+|---|---|
+| `piedrazul-web` | Inicio de sesión desde el frontend (Authorization Code con PKCE). |
+| `piedrazul-backend` | Cuenta de servicio con la que el backend crea los pacientes que se registran. |
+| `piedrazul-dev-tools` | Solo para pruebas: permite pedir un token con usuario y contraseña desde Postman, IntelliJ u OWASP ZAP. |
+
+La gestión de usuarios y roles se hace desde la consola de Keycloak o con la colección de
+Postman de `docs/postman/`.
+
+Si se cambia `piedrazul-realm.json`, hay que borrar el volumen para que se vuelva a importar:
+`docker compose down` y luego `docker volume rm piedrazul_keycloak-data` (se pierden los
+usuarios creados a mano).
+
 ## Pruebas
 
 - Backend, desde `backend/`: `./mvnw test`. Incluye `ModularityTest`, que falla si un módulo usa
@@ -67,7 +86,9 @@ Un módulo solo puede usar los tipos del paquete raíz de otro; `ModularityTest`
 
 ## Usuarios de prueba
 
-Los crean las migraciones de Flyway. Todas las contraseñas siguen el formato `<usuario>-1234`.
+Están en Keycloak (`keycloak/piedrazul-realm.json`), con los mismos identificadores que usan las
+migraciones de Flyway para los pacientes y los profesionales. Todas las contraseñas siguen el
+formato `<usuario>-1234`.
 
 | Rol | Correo | Contraseña |
 |---|---|---|
