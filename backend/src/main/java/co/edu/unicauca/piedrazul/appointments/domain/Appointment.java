@@ -2,6 +2,7 @@ package co.edu.unicauca.piedrazul.appointments.domain;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Objects;
 import java.util.UUID;
@@ -60,6 +61,13 @@ public class Appointment {
 
     public LocalTime endTime() {
         return startTime.plusMinutes(durationMinutes);
+    }
+
+    /**
+     * Una cita deja de ser próxima en cuanto llega su hora de inicio.
+     */
+    public boolean isUpcomingAt(LocalDateTime now) {
+        return date.atTime(startTime).isAfter(now);
     }
 
     public UUID id() {

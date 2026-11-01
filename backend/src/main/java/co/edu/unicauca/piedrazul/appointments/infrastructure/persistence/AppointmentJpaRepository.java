@@ -12,4 +12,6 @@ interface AppointmentJpaRepository extends JpaRepository<AppointmentEntity, UUID
 
     List<AppointmentEntity> findByPatientIdAndAppointmentDateOrderByStartTime(UUID patientId,
             LocalDate appointmentDate);
+
+    List<AppointmentEntity> findByPatientIdOrderByAppointmentDateDescStartTimeDesc(UUID patientId);
 }

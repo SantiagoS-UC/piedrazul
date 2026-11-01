@@ -86,3 +86,15 @@ Authorization: Bearer {{professionalToken}}
 ### La profesional no puede exportar la agenda de otro profesional: responde 403
 GET http://localhost:8081/api/appointments/agenda/export?professionalId=20000000-0000-0000-0000-000000000002&date=2026-09-29
 Authorization: Bearer {{professionalToken}}
+
+### RF5: sugerencias de pacientes por documento (mínimo 3 caracteres)
+GET http://localhost:8081/api/patients/search?document=106100
+Authorization: Bearer {{schedulerToken}}
+
+### RF5: historial de citas de Ana María Gómez con todos los profesionales
+GET http://localhost:8081/api/appointments/patient-history?patientId=00000000-0000-0000-0000-000000000101
+Authorization: Bearer {{professionalToken}}
+
+### Un paciente no puede consultar historiales: responde 403
+GET http://localhost:8081/api/appointments/patient-history?patientId=00000000-0000-0000-0000-000000000101
+Authorization: Bearer {{patientToken}}

@@ -6,6 +6,7 @@ import co.edu.unicauca.piedrazul.identity.domain.PatientRepository;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -30,5 +31,12 @@ class PatientRepositoryAdapter implements PatientRepository {
     @Override
     public List<Patient> findAllById(Collection<UUID> ids) {
         return jpaRepository.findAllById(ids).stream().map(PatientEntity::toDomain).toList();
+    }
+
+    @Override
+    public List<Patient> findByDocumentNumberStartingWith(String prefix, int limit) {
+        return jpaRepository.findByDocumentNumberStartingWithOrderByDocumentNumber(prefix, Limit.of(limit)).stream()
+                .map(PatientEntity::toDomain)
+                .toList();
     }
 }

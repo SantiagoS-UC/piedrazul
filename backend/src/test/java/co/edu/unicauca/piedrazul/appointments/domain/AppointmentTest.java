@@ -63,6 +63,24 @@ class AppointmentTest {
                 .isFalse();
     }
 
+    @Test
+    @DisplayName("Es próxima mientras no haya llegado su hora de inicio")
+    void isUpcomingBeforeStart() {
+        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
+
+        assertThat(appointment.isUpcomingAt(DATE.atTime(7, 59))).isTrue();
+        assertThat(appointment.isUpcomingAt(DATE.minusDays(1).atTime(18, 0))).isTrue();
+    }
+
+    @Test
+    @DisplayName("Deja de ser próxima desde su hora de inicio")
+    void isPastFromStart() {
+        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
+
+        assertThat(appointment.isUpcomingAt(DATE.atTime(8, 0))).isFalse();
+        assertThat(appointment.isUpcomingAt(DATE.plusDays(1).atTime(7, 0))).isFalse();
+    }
+
     private static Appointment appointmentAt(LocalTime start, int minutes) {
         return Appointment.book(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), DATE, start, minutes,
                 Instant.parse("2026-09-26T15:00:00Z"));

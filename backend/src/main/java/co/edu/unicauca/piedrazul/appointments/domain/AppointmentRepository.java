@@ -15,4 +15,9 @@ public interface AppointmentRepository {
     List<Appointment> findByProfessionalAndDate(UUID professionalId, LocalDate date);
 
     List<Appointment> findByPatientAndDate(UUID patientId, LocalDate date);
+
+    /**
+     * Todas las citas del paciente, de la más reciente a la más antigua.
+     */
+    List<Appointment> findByPatient(UUID patientId);
 }

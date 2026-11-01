@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+
+export type BadgeTone = 'primary' | 'neutral';
 
 @Component({
   selector: 'app-badge',
@@ -13,7 +15,15 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
       background: var(--pz-color-primary-soft);
       border-radius: 999px;
     }
+
+    :host(.neutral) {
+      color: var(--pz-color-text-muted);
+      background: #eef1f5;
+    }
   `,
+  host: { '[class.neutral]': "tone() === 'neutral'" },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Badge {}
+export class Badge {
+  readonly tone = input<BadgeTone>('primary');
+}
