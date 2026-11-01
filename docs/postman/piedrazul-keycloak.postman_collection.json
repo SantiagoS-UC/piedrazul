@@ -1,0 +1,448 @@
+{
+  "info": {
+    "name": "Piedrazul - Keycloak",
+    "description": "Gestión de usuarios y roles del realm piedrazul (NF1). Ejecutar primero \"Token del administrador\". Requiere docker compose up -d.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "keycloakUrl",
+      "value": "http://localhost:8180"
+    },
+    {
+      "key": "realm",
+      "value": "piedrazul"
+    },
+    {
+      "key": "apiUrl",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "newUserEmail",
+      "value": "nuevo.agendador@gmail.com"
+    },
+    {
+      "key": "newUserPassword",
+      "value": "agendador2-1234"
+    },
+    {
+      "key": "role",
+      "value": "SCHEDULER"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "userToken",
+      "value": ""
+    },
+    {
+      "key": "roleJson",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Administración",
+      "item": [
+        {
+          "name": "Token del administrador",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{keycloakUrl}}/realms/master/protocol/openid-connect/token",
+            "description": "Token del administrador de Keycloak (admin/admin, definido en docker-compose). Dura un minuto: si una petición responde 401, se vuelve a ejecutar esta.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "admin-cli",
+                  "type": "text"
+                },
+                {
+                  "key": "username",
+                  "value": "admin",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "admin",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('adminToken', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users?max=50",
+            "description": "Usuarios del realm piedrazul.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar roles del realm",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/roles",
+            "description": "PATIENT, SCHEDULER, PROFESSIONAL y ADMIN, además de los roles por defecto de Keycloak.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users",
+            "description": "Crea el usuario con contraseña definitiva. Keycloak responde 201 y el id va en la cabecera Location.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{newUserEmail}}\",\n  \"email\": \"{{newUserEmail}}\",\n  \"emailVerified\": true,\n  \"enabled\": true,\n  \"firstName\": \"Nuevo\",\n  \"lastName\": \"Agendador\",\n  \"credentials\": [\n    {\n      \"type\": \"password\",\n      \"value\": \"{{newUserPassword}}\",\n      \"temporary\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 201', () => pm.response.to.have.status(201));",
+                  "const location = pm.response.headers.get('Location');",
+                  "pm.collectionVariables.set('userId', location.substring(location.lastIndexOf('/') + 1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar el rol",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/roles/{{role}}",
+            "description": "Representación del rol que se va a asignar.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('roleJson', JSON.stringify([pm.response.json()]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Asignar el rol al usuario",
+          "request": {
+            "method": "POST",
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users/{{userId}}/role-mappings/realm",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{roleJson}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Ejecutar después de \"Consultar el rol\". Responde 204."
+          }
+        },
+        {
+          "name": "Roles del usuario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users/{{userId}}/role-mappings/realm",
+            "description": "Comprueba que el usuario quedó con el rol.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cambiar la contraseña",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users/{{userId}}/reset-password",
+            "description": "Responde 204.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"password\",\n  \"value\": \"{{newUserPassword}}\",\n  \"temporary\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Desactivar usuario",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users/{{userId}}",
+            "description": "Un usuario desactivado ya no puede iniciar sesión. Responde 204.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Eliminar usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{keycloakUrl}}/admin/realms/{{realm}}/users/{{userId}}",
+            "description": "Responde 204.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Probar el acceso",
+      "item": [
+        {
+          "name": "Token del usuario nuevo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{keycloakUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+            "description": "Usa el cliente de pruebas piedrazul-dev-tools, el único que acepta usuario y contraseña directamente.",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "piedrazul-dev-tools",
+                  "type": "text"
+                },
+                {
+                  "key": "username",
+                  "value": "{{newUserEmail}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{newUserPassword}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('userToken', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Profesionales con el token (200)",
+          "request": {
+            "method": "GET",
+            "url": "{{apiUrl}}/api/professionals",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Cualquier usuario autenticado puede listar los profesionales."
+          }
+        },
+        {
+          "name": "Configuración con el token (403 si no es ADMIN)",
+          "request": {
+            "method": "GET",
+            "url": "{{apiUrl}}/api/configuration/scheduling-window",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{userToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "El backend responde 403 a quien no tenga el rol ADMIN."
+          }
+        },
+        {
+          "name": "Sin token (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{apiUrl}}/api/professionals",
+            "description": "El backend rechaza las peticiones sin token."
+          }
+        }
+      ]
+    }
+  ]
+}

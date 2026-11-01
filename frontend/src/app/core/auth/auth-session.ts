@@ -1,56 +1,74 @@
-import { computed, inject, Injectable, InjectionToken, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { ROLE_HOME, Session } from './session';
-
-// La sesión se guarda en sessionStorage y no en localStorage: se cierra al cerrar el navegador,
-// lo que protege a los pacientes que usan computadores compartidos.
-export const SESSION_STORAGE = new InjectionToken<Storage>('SESSION_STORAGE', {
-  providedIn: 'root',
-  factory: () => sessionStorage,
-});
-
-const STORAGE_KEY = 'piedrazul.session';
+import { computed, inject, Injectable, signal } from '@angular/core';
+import { KEYCLOAK } from './keycloak';
+import { ROLE_HOME, Session, sessionFromClaims, TokenClaims } from './session';
 
 export type SessionEndReason = 'expired';
 
+// Si al token le quedan menos segundos que esto, se renueva antes de llamar a la API.
+const MIN_TOKEN_VALIDITY_SECONDS = 30;
+
 /**
- * Única fuente de verdad sobre quién inició sesión. Los componentes leen sus señales y la
- * interfaz se actualiza sola al iniciar o cerrar sesión.
+ * Única fuente de verdad sobre quién inició sesión. El inicio de sesión ocurre en Keycloak
+ * (Authorization Code con PKCE); aquí solo se lee el token y se mantiene vigente.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthSession {
-  private readonly router = inject(Router);
-  private readonly storage = inject(SESSION_STORAGE);
-  private readonly current = signal<Session | null>(this.restore());
-  private expiryTimer?: ReturnType<typeof setTimeout>;
+  private readonly keycloak = inject(KEYCLOAK);
+  private readonly current = signal<Session | null>(null);
 
   readonly session = this.current.asReadonly();
   readonly isAuthenticated = computed(() => this.current() !== null);
   readonly role = computed(() => this.current()?.role ?? null);
   readonly displayName = computed(() => this.current()?.displayName ?? '');
+  /** Inició sesión en Keycloak, pero su cuenta no tiene un rol de Piedrazul. */
+  readonly missingRole = signal(false);
 
-  constructor() {
-    const session = this.current();
-    if (session) {
-      this.scheduleExpiry(session);
+  /**
+   * Se ejecuta una vez al arrancar la aplicación. check-sso averigua en silencio si ya hay una
+   * sesión abierta en Keycloak, sin mostrar su página de inicio de sesión.
+   */
+  async init(): Promise<void> {
+    this.keycloak.onTokenExpired = () => void this.freshToken();
+    try {
+      const authenticated = await this.keycloak.init({
+        onLoad: 'check-sso',
+        pkceMethod: 'S256',
+        checkLoginIframe: false,
+        silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+      });
+      if (authenticated) {
+        this.refreshSession();
+      }
+    } catch {
+      // Keycloak no responde: la aplicación arranca sin sesión y el botón de ingreso lo reintenta.
+      this.current.set(null);
     }
   }
 
-  start(session: Session): void {
-    this.storage.setItem(STORAGE_KEY, JSON.stringify(session));
-    this.current.set(session);
-    this.scheduleExpiry(session);
+  login(email?: string): Promise<void> {
+    return this.keycloak.login({ redirectUri: `${window.location.origin}/`, loginHint: email });
   }
 
-  end(reason?: SessionEndReason): void {
-    clearTimeout(this.expiryTimer);
-    this.storage.removeItem(STORAGE_KEY);
+  /** Cierra la sesión también en Keycloak, para que el siguiente usuario del equipo no la herede. */
+  end(reason?: SessionEndReason): Promise<void> {
     this.current.set(null);
-    void this.router.navigate(['/login'], reason ? { queryParams: { reason } } : {});
+    this.missingRole.set(false);
+    const query = reason ? `?reason=${reason}` : '';
+    return this.keycloak.logout({ redirectUri: `${window.location.origin}/login${query}` });
   }
 
-  token(): string | null {
-    return this.current()?.token ?? null;
+  /** Token vigente para la API; si está por vencer lo renueva. Null si no hay sesión. */
+  async freshToken(): Promise<string | null> {
+    if (!this.current()) {
+      return null;
+    }
+    try {
+      await this.keycloak.updateToken(MIN_TOKEN_VALIDITY_SECONDS);
+      return this.keycloak.token ?? null;
+    } catch {
+      await this.end('expired');
+      return null;
+    }
   }
 
   homeUrl(): string {
@@ -58,24 +76,9 @@ export class AuthSession {
     return role ? ROLE_HOME[role] : '/login';
   }
 
-  private restore(): Session | null {
-    const raw = this.storage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      const session = JSON.parse(raw) as Session;
-      return Date.parse(session.expiresAt) > Date.now() ? session : null;
-    } catch {
-      return null;
-    }
-  }
-
-  // Cierra la sesión en el momento exacto en que vence el token, en lugar de esperar a que una
-  // petición falle con un mensaje confuso.
-  private scheduleExpiry(session: Session): void {
-    clearTimeout(this.expiryTimer);
-    const remaining = Date.parse(session.expiresAt) - Date.now();
-    this.expiryTimer = setTimeout(() => this.end('expired'), Math.max(remaining, 0));
+  private refreshSession(): void {
+    const session = sessionFromClaims(this.keycloak.tokenParsed as TokenClaims | undefined);
+    this.current.set(session);
+    this.missingRole.set(session === null);
   }
 }

@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthApi, RegisterPatientRequest } from '../../../core/auth/auth-api';
+import { AuthSession } from '../../../core/auth/auth-session';
 import { toApiError } from '../../../core/http/api-error';
 import { RegisterForm } from '../../../shared/ui/organisms/register-form/register-form';
 import { SuccessDialog } from '../../../shared/ui/organisms/success-dialog/success-dialog';
@@ -25,7 +26,7 @@ import { AuthLayout } from '../../../shared/ui/templates/auth-layout/auth-layout
       [open]="registered()"
       heading="¡Cuenta creada!"
       message="Ya puedes iniciar sesión con tu correo y tu contraseña para agendar tus citas."
-      actionLabel="Ir a iniciar sesión"
+      actionLabel="Iniciar sesión"
       (action)="goToLogin()"
     />
   `,
@@ -38,7 +39,7 @@ import { AuthLayout } from '../../../shared/ui/templates/auth-layout/auth-layout
 })
 export class RegisterPage {
   private readonly authApi = inject(AuthApi);
-  private readonly router = inject(Router);
+  private readonly session = inject(AuthSession);
   private registeredEmail = '';
 
   protected readonly loading = signal(false);
@@ -65,7 +66,8 @@ export class RegisterPage {
       });
   }
 
+  // Lleva a Keycloak con el correo ya escrito.
   protected goToLogin(): void {
-    void this.router.navigateByUrl('/login', { state: { email: this.registeredEmail } });
+    void this.session.login(this.registeredEmail);
   }
 }

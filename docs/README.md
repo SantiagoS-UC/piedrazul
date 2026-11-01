@@ -13,3 +13,9 @@ Aquí solo quedan los diagramas que conviene versionar junto al código:
 Se abren con el plugin PlantUML Integration de IntelliJ. El diagrama C4 de componentes no se dibuja a
 mano: lo genera `ModularityTest` en `backend/target/spring-modulith-docs` a partir del código real,
 cada vez que se corren las pruebas del backend.
+
+## Postman
+
+La colección `postman/piedrazul-keycloak.postman_collection.json` crea usuarios, les asigna roles y
+prueba el acceso a la API (requisito no funcional 1). Se importa en Postman con *Import* y se
+ejecuta en orden, empezando por "Token del administrador".

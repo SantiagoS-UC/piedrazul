@@ -25,7 +25,9 @@ class PatientRepositoryAdapter implements PatientRepository {
 
     @Override
     public void save(Patient patient) {
-        jpaRepository.save(PatientEntity.fromDomain(patient));
+        // saveAndFlush para que un error de la base de datos aparezca aquí y el registro pueda
+        // borrar la cuenta que ya se creó en Keycloak.
+        jpaRepository.saveAndFlush(PatientEntity.fromDomain(patient));
     }
 
     @Override

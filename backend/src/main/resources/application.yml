@@ -12,6 +12,12 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Solo se aceptan tokens emitidos por este realm de Keycloak.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/piedrazul}
   flyway:
     # Cada módulo versiona sus migraciones en su propia carpeta y rango (identity 1.x,
     # professionals 2.x, configuration 3.x, appointments 4.x). Como se desarrollan en paralelo,
@@ -23,8 +29,10 @@ server:
   port: ${SERVER_PORT:8081}
 
 piedrazul:
-  security:
-    jwt:
-      # Solo para desarrollo. En cualquier otro entorno se define JWT_SECRET (mínimo 32 caracteres).
-      secret: ${JWT_SECRET:piedrazul-dev-secret-key-change-me-2026}
-      expiration: 2h
+  # Cuenta de servicio con la que el registro crea a los pacientes en Keycloak.
+  keycloak:
+    url: ${KEYCLOAK_URL:http://localhost:8180}
+    realm: piedrazul
+    client-id: piedrazul-backend
+    # Solo para desarrollo; coincide con keycloak/piedrazul-realm.json.
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:piedrazul-backend-dev-secret}

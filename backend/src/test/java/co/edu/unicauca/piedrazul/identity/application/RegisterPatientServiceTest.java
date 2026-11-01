@@ -3,6 +3,7 @@ package co.edu.unicauca.piedrazul.identity.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,12 +12,11 @@ import co.edu.unicauca.piedrazul.identity.domain.DocumentType;
 import co.edu.unicauca.piedrazul.identity.domain.Email;
 import co.edu.unicauca.piedrazul.identity.domain.Gender;
 import co.edu.unicauca.piedrazul.identity.domain.IdentityDocument;
-import co.edu.unicauca.piedrazul.identity.domain.PasswordHasher;
+import co.edu.unicauca.piedrazul.identity.domain.IdentityProvider;
+import co.edu.unicauca.piedrazul.identity.domain.NewUserAccount;
 import co.edu.unicauca.piedrazul.identity.domain.Patient;
 import co.edu.unicauca.piedrazul.identity.domain.PatientRepository;
 import co.edu.unicauca.piedrazul.identity.domain.Role;
-import co.edu.unicauca.piedrazul.identity.domain.UserAccount;
-import co.edu.unicauca.piedrazul.identity.domain.UserAccountRepository;
 import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
 import co.edu.unicauca.piedrazul.shared.domain.DuplicateResourceException;
 import java.time.Clock;
@@ -31,46 +31,56 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
 class RegisterPatientServiceTest {
 
-    private static final Instant NOW = Instant.parse("2026-09-25T15:00:00Z");
-    private static final Clock CLOCK = Clock.fixed(NOW, ZoneId.of("America/Bogota"));
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-25T15:00:00Z"),
+            ZoneId.of("America/Bogota"));
+    private static final UUID ACCOUNT_ID = UUID.randomUUID();
 
     @Mock
-    private UserAccountRepository userAccountRepository;
+    private IdentityProvider identityProvider;
     @Mock
     private PatientRepository patientRepository;
-    @Mock
-    private PasswordHasher passwordHasher;
 
     private RegisterPatientService service;
 
     @BeforeEach
     void setUp() {
-        service = new RegisterPatientService(userAccountRepository, patientRepository, passwordHasher, CLOCK);
+        service = new RegisterPatientService(identityProvider, patientRepository, CLOCK);
     }
 
     @Test
-    @DisplayName("Registra al paciente y su cuenta con la contraseña cifrada")
-    void registersPatientAndAccount() {
-        when(passwordHasher.hash("clave1234")).thenReturn("hashed");
+    @DisplayName("Crea la cuenta de paciente en el proveedor de identidad y guarda al paciente con el mismo id")
+    void registersPatientWithAccountId() {
+        when(identityProvider.createAccount(any())).thenReturn(ACCOUNT_ID);
 
         UUID id = service.register(validCommand());
 
-        ArgumentCaptor<UserAccount> account = ArgumentCaptor.forClass(UserAccount.class);
+        ArgumentCaptor<NewUserAccount> account = ArgumentCaptor.forClass(NewUserAccount.class);
         ArgumentCaptor<Patient> patient = ArgumentCaptor.forClass(Patient.class);
-        verify(userAccountRepository).save(account.capture());
+        verify(identityProvider).createAccount(account.capture());
         verify(patientRepository).save(patient.capture());
 
-        assertThat(account.getValue().id()).isEqualTo(id);
+        assertThat(id).isEqualTo(ACCOUNT_ID);
         assertThat(account.getValue().email()).isEqualTo(new Email("ana@gmail.com"));
-        assertThat(account.getValue().passwordHash()).isEqualTo("hashed");
+        assertThat(account.getValue().password()).isEqualTo("clave1234");
         assertThat(account.getValue().role()).isEqualTo(Role.PATIENT);
-        assertThat(account.getValue().createdAt()).isEqualTo(NOW);
-        assertThat(patient.getValue().id()).isEqualTo(id);
+        assertThat(patient.getValue().id()).isEqualTo(ACCOUNT_ID);
         assertThat(patient.getValue().name().fullName()).isEqualTo("Ana María Gómez Ruiz");
+    }
+
+    @Test
+    @DisplayName("Borra la cuenta creada si no se puede guardar al paciente")
+    void deletesAccountWhenPatientFails() {
+        when(identityProvider.createAccount(any())).thenReturn(ACCOUNT_ID);
+        doThrow(new DataIntegrityViolationException("duplicado")).when(patientRepository).save(any());
+
+        assertThatThrownBy(() -> service.register(validCommand()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        verify(identityProvider).deleteAccount(ACCOUNT_ID);
     }
 
     @Test
@@ -82,18 +92,18 @@ class RegisterPatientServiceTest {
         assertThatThrownBy(() -> service.register(validCommand()))
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessageContaining("Ya existe una cuenta con este documento");
-        verifyNothingSaved();
+        verifyNothingCreated();
     }
 
     @Test
     @DisplayName("No registra si el correo ya existe")
     void rejectsDuplicateEmail() {
-        when(userAccountRepository.existsByEmail(new Email("ana@gmail.com"))).thenReturn(true);
+        when(identityProvider.emailExists(new Email("ana@gmail.com"))).thenReturn(true);
 
         assertThatThrownBy(() -> service.register(validCommand()))
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessageContaining("Este correo ya está registrado");
-        verifyNothingSaved();
+        verifyNothingCreated();
     }
 
     @Test
@@ -104,7 +114,7 @@ class RegisterPatientServiceTest {
         assertThatThrownBy(() -> service.register(command))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessage("Las contraseñas no coinciden.");
-        verifyNothingSaved();
+        verifyNothingCreated();
     }
 
     @Test
@@ -115,11 +125,11 @@ class RegisterPatientServiceTest {
         assertThatThrownBy(() -> service.register(command))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessageContaining("al menos 8 caracteres");
-        verifyNothingSaved();
+        verifyNothingCreated();
     }
 
     @Test
-    @DisplayName("No registra si la fecha de nacimiento es futura")
+    @DisplayName("No crea la cuenta si la fecha de nacimiento es futura")
     void rejectsFutureBirthDate() {
         RegisterPatientCommand command = new RegisterPatientCommand("Ana", "María", "Gómez", "Ruiz",
                 DocumentType.CC, "1061000001", LocalDate.of(2027, 1, 1), Gender.FEMALE, "3001234567",
@@ -128,11 +138,11 @@ class RegisterPatientServiceTest {
         assertThatThrownBy(() -> service.register(command))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessage("La fecha de nacimiento no puede ser futura.");
-        verifyNothingSaved();
+        verifyNothingCreated();
     }
 
-    private void verifyNothingSaved() {
-        verify(userAccountRepository, never()).save(any());
+    private void verifyNothingCreated() {
+        verify(identityProvider, never()).createAccount(any());
         verify(patientRepository, never()).save(any());
     }
 

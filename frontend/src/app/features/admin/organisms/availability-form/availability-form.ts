@@ -19,7 +19,7 @@ import { Alert } from '../../../../shared/ui/molecules/alert/alert';
 import { DayPicker, WorkingDay } from '../../../../shared/ui/molecules/day-picker/day-picker';
 import { describedBy, FormField } from '../../../../shared/ui/molecules/form-field/form-field';
 import { SlotPreview } from '../../../../shared/ui/molecules/slot-preview/slot-preview';
-import { focusFirstInvalid } from '../../../../shared/ui/organisms/login-form/login-form';
+import { focusFirstInvalid } from '../../../../shared/ui/focus-first-invalid';
 import { Availability, AvailabilityRequest } from '../../configuration-api';
 import { minutesBetween, slotStartTimes } from '../../slots';
 

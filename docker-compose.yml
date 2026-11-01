@@ -16,5 +16,20 @@ services:
       timeout: 5s
       retries: 10
 
+  # Usuarios, contraseñas y roles. El realm se importa solo la primera vez que arranca;
+  # los usuarios creados después (por ejemplo desde Postman) quedan en el volumen.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.3
+    container_name: piedrazul-keycloak
+    command: start-dev --import-realm --http-port=8180
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+      - keycloak-data:/opt/keycloak/data
 volumes:
   piedrazul-data:
+  keycloak-data:
