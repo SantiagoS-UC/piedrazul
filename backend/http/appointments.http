@@ -63,3 +63,26 @@ Authorization: Bearer {{schedulerToken}}
 ### Un paciente no puede ver el listado: responde 403
 GET http://localhost:8081/api/appointments/agenda?professionalId=20000000-0000-0000-0000-000000000001&date=2026-09-29
 Authorization: Bearer {{patientToken}}
+
+### RF4: el agendador exporta en CSV las citas de Laura Martínez. Cambia la fecha por una con citas
+GET http://localhost:8081/api/appointments/agenda/export?professionalId=20000000-0000-0000-0000-000000000001&date=2026-09-29
+Authorization: Bearer {{schedulerToken}}
+
+### RF4: inicio de sesión de la médica Laura Martínez (guarda el token en {{professionalToken}})
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "laura.martinez@gmail.com",
+  "password": "laura.martinez-1234"
+}
+
+> {% client.global.set("professionalToken", response.body.token); %}
+
+### La profesional exporta su propia agenda sin enviar su id
+GET http://localhost:8081/api/appointments/agenda/export?date=2026-09-29
+Authorization: Bearer {{professionalToken}}
+
+### La profesional no puede exportar la agenda de otro profesional: responde 403
+GET http://localhost:8081/api/appointments/agenda/export?professionalId=20000000-0000-0000-0000-000000000002&date=2026-09-29
+Authorization: Bearer {{professionalToken}}

@@ -4,6 +4,7 @@ import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures
 import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.NEXT_WEDNESDAY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
@@ -11,6 +12,7 @@ import co.edu.unicauca.piedrazul.appointments.domain.AppointmentRepository;
 import co.edu.unicauca.piedrazul.identity.PatientDirectory;
 import co.edu.unicauca.piedrazul.identity.PatientSummary;
 import co.edu.unicauca.piedrazul.professionals.ProfessionalCatalog;
+import co.edu.unicauca.piedrazul.shared.domain.AccessForbiddenException;
 import co.edu.unicauca.piedrazul.shared.domain.ResourceNotFoundException;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -31,6 +33,7 @@ class AgendaQueryServiceTest {
             "CC", "1061000001", "3001234567");
     private static final PatientSummary CARLOS = new PatientSummary(UUID.randomUUID(), "Carlos", null, "Muñoz",
             null, "CC", "1061000002", "3009876543");
+    private static final Requester SCHEDULER = Requester.scheduler(UUID.randomUUID());
 
     @Mock
     private ProfessionalCatalog professionalCatalog;
@@ -56,7 +59,7 @@ class AgendaQueryServiceTest {
                 .thenReturn(List.of(late, early));
         when(patientDirectory.findByIds(List.of(ANA.id(), CARLOS.id()))).thenReturn(List.of(CARLOS, ANA));
 
-        ProfessionalAgenda agenda = service.agendaOf(LAURA.id(), NEXT_WEDNESDAY);
+        ProfessionalAgenda agenda = service.agendaOf(SCHEDULER, LAURA.id(), NEXT_WEDNESDAY);
 
         assertThat(agenda.professional()).isEqualTo(LAURA);
         assertThat(agenda.date()).isEqualTo(NEXT_WEDNESDAY);
@@ -74,7 +77,7 @@ class AgendaQueryServiceTest {
         when(appointmentRepository.findByProfessionalAndDate(LAURA.id(), NEXT_WEDNESDAY)).thenReturn(List.of());
         when(patientDirectory.findByIds(List.of())).thenReturn(List.of());
 
-        ProfessionalAgenda agenda = service.agendaOf(LAURA.id(), NEXT_WEDNESDAY);
+        ProfessionalAgenda agenda = service.agendaOf(SCHEDULER, LAURA.id(), NEXT_WEDNESDAY);
 
         assertThat(agenda.total()).isZero();
         assertThat(agenda.entries()).isEmpty();
@@ -88,7 +91,7 @@ class AgendaQueryServiceTest {
                 .thenReturn(List.of(appointmentOf(ANA, LocalTime.of(8, 0))));
         when(patientDirectory.findByIds(List.of(ANA.id()))).thenReturn(List.of());
 
-        ProfessionalAgenda agenda = service.agendaOf(LAURA.id(), NEXT_WEDNESDAY);
+        ProfessionalAgenda agenda = service.agendaOf(SCHEDULER, LAURA.id(), NEXT_WEDNESDAY);
 
         assertThat(agenda.total()).isEqualTo(1);
         assertThat(agenda.entries().get(0).patient()).isEmpty();
@@ -100,8 +103,30 @@ class AgendaQueryServiceTest {
         UUID unknown = UUID.randomUUID();
         when(professionalCatalog.findById(unknown)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.agendaOf(unknown, NEXT_WEDNESDAY))
+        assertThatThrownBy(() -> service.agendaOf(SCHEDULER, unknown, NEXT_WEDNESDAY))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("El profesional consulta su propia agenda sin indicar su id")
+    void professionalSeesOwnAgenda() {
+        when(professionalCatalog.findById(LAURA.id())).thenReturn(Optional.of(LAURA));
+        when(appointmentRepository.findByProfessionalAndDate(LAURA.id(), NEXT_WEDNESDAY)).thenReturn(List.of());
+        when(patientDirectory.findByIds(List.of())).thenReturn(List.of());
+
+        ProfessionalAgenda agenda = service.agendaOf(Requester.professional(LAURA.id()), null, NEXT_WEDNESDAY);
+
+        assertThat(agenda.professional()).isEqualTo(LAURA);
+    }
+
+    @Test
+    @DisplayName("No consulta nada si un profesional pide la agenda de otro")
+    void professionalCannotSeeOtherAgenda() {
+        Requester andres = Requester.professional(UUID.randomUUID());
+
+        assertThatThrownBy(() -> service.agendaOf(andres, LAURA.id(), NEXT_WEDNESDAY))
+                .isInstanceOf(AccessForbiddenException.class);
+        verifyNoInteractions(professionalCatalog, appointmentRepository, patientDirectory);
     }
 
     private static Appointment appointmentOf(PatientSummary patient, LocalTime start) {

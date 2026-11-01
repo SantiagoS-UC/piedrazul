@@ -34,8 +34,17 @@ export const routes: Routes = [
         title: 'Listado de citas | Piedrazul',
         canActivate: [roleGuard('SCHEDULER')],
         loadComponent: () =>
-          import('./features/scheduler/appointment-list-page/appointment-list-page').then(
+          import('./features/staff/appointment-list-page/appointment-list-page').then(
             (m) => m.AppointmentListPage,
+          ),
+      },
+      {
+        path: 'staff/export-appointments',
+        title: 'Exportar citas | Piedrazul',
+        canActivate: [roleGuard('SCHEDULER', 'PROFESSIONAL')],
+        loadComponent: () =>
+          import('./features/staff/export-appointments-page/export-appointments-page').then(
+            (m) => m.ExportAppointmentsPage,
           ),
       },
       {

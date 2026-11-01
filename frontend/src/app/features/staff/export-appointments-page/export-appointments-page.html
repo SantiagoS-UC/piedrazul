@@ -1,0 +1,90 @@
+<app-page-header
+  heading="Exportar citas"
+  description="Descarga en CSV las citas de un día para organizar la llegada de los pacientes a la consulta."
+/>
+
+@if (exported(); as file) {
+  <app-alert type="success">
+    Archivo exportado: <strong>{{ file.name }}</strong> ({{ file.total }} {{ file.total === 1 ? 'cita' : 'citas' }}).
+    Puedes abrirlo con Excel u otra hoja de cálculo.
+  </app-alert>
+}
+
+@if (errorMessage()) {
+  <app-alert type="error">{{ errorMessage() }}</app-alert>
+}
+
+<section class="card" aria-labelledby="filters-title">
+  <h2 id="filters-title">Filtros de exportación</h2>
+  <form class="filters" [formGroup]="form" novalidate (ngSubmit)="export()">
+    @if (isProfessional) {
+      <div class="own-agenda">
+        <span class="own-agenda-label">Profesional</span>
+        <span class="own-agenda-name">{{ session.displayName() }}</span>
+        <span class="own-agenda-hint">Exportas solo tus propias citas.</span>
+      </div>
+    } @else {
+      <app-form-field
+        label="Profesional"
+        fieldId="export-professional"
+        required
+        hint="Ordenados alfabéticamente por apellido."
+      >
+        <select
+          appFieldControl
+          id="export-professional"
+          formControlName="professionalId"
+          [describedBy]="describedBy('export-professional', true)"
+        >
+          <option value="">Selecciona un profesional</option>
+          @for (professional of professionals(); track professional.id) {
+            <option [value]="professional.id">
+              {{ lastNameFirst(professional) }} · {{ professional.specialtyName }}
+            </option>
+          }
+        </select>
+      </app-form-field>
+    }
+
+    <app-form-field label="Fecha" fieldId="export-date" required hint="Por defecto, hoy.">
+      <input
+        appFieldControl
+        id="export-date"
+        type="date"
+        formControlName="date"
+        [describedBy]="describedBy('export-date', true)"
+      />
+    </app-form-field>
+  </form>
+</section>
+
+<section class="card preview" aria-labelledby="preview-title" aria-live="polite">
+  <div class="preview-header">
+    <h2 id="preview-title">Vista previa</h2>
+    <p class="count">
+      Se exportarán <span class="count-number">{{ total() }}</span> {{ total() === 1 ? 'registro' : 'registros' }}
+    </p>
+  </div>
+
+  @if (loadingPreview()) {
+    <p class="loading"><app-spinner /> Cargando citas…</p>
+  } @else if (agenda(); as result) {
+    @if (result.total === 0) {
+      <app-alert type="info">No hay citas en esta fecha. Elige otra fecha para exportar.</app-alert>
+    } @else {
+      <p class="preview-title">{{ previewTitle() }}</p>
+      <app-appointment-table [appointments]="result.appointments" [caption]="previewTitle()" />
+    }
+  } @else {
+    <app-alert type="info">Elige un profesional y una fecha para ver las citas que se exportarán.</app-alert>
+  }
+</section>
+
+<div class="actions">
+  <button appButton type="button" [loading]="exporting()" [disabled]="!canExport()" (click)="export()">
+    @if (!exporting()) {
+      <app-icon name="download" />
+    }
+    Exportar CSV
+  </button>
+</div>

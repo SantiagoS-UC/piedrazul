@@ -1,0 +1,106 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 64rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.75rem 2rem;
+  background: var(--pz-color-surface);
+  border-radius: var(--pz-radius-lg);
+  box-shadow: var(--pz-shadow-card);
+}
+
+h2 {
+  font-size: 1.2rem;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1rem 1.5rem;
+  align-items: start;
+}
+
+.own-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--pz-color-primary-soft);
+  border-radius: var(--pz-radius-md);
+}
+
+.own-agenda-label {
+  font-weight: 600;
+}
+
+.own-agenda-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--pz-color-primary-hover);
+}
+
+.own-agenda-hint {
+  font-size: 0.95rem;
+  color: var(--pz-color-text-muted);
+}
+
+.preview-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.count {
+  color: var(--pz-color-text-muted);
+}
+
+.count-number {
+  padding: 0 0.35rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--pz-color-primary-hover);
+}
+
+.preview-title {
+  font-weight: 600;
+}
+
+.loading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  color: var(--pz-color-text-muted);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.actions button {
+  min-width: 14rem;
+}
+
+@media (width < 900px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+}
+
+@media (width < 600px) {
+  .card {
+    padding: 1.25rem;
+  }
+}
