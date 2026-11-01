@@ -27,7 +27,7 @@ import { FieldControl } from '../../atoms/field-control/field-control';
 import { Alert } from '../../molecules/alert/alert';
 import { describedBy, FormField } from '../../molecules/form-field/form-field';
 import { PasswordInput } from '../../molecules/password-input/password-input';
-import { focusFirstInvalid } from '../login-form/login-form';
+import { focusFirstInvalid } from '../../focus-first-invalid';
 
 type FieldName = keyof RegisterPatientRequest;
 

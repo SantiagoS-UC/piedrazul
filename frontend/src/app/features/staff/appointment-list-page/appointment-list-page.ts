@@ -9,7 +9,7 @@ import { FieldControl } from '../../../shared/ui/atoms/field-control/field-contr
 import { Alert } from '../../../shared/ui/molecules/alert/alert';
 import { describedBy, FormField } from '../../../shared/ui/molecules/form-field/form-field';
 import { PageHeader } from '../../../shared/ui/molecules/page-header/page-header';
-import { focusFirstInvalid } from '../../../shared/ui/organisms/login-form/login-form';
+import { focusFirstInvalid } from '../../../shared/ui/focus-first-invalid';
 import { Agenda, AgendaApi } from '../agenda-api';
 import { AGENDA_ORDERS, AgendaOrder } from '../agenda-sort';
 import { AppointmentTable } from '../organisms/appointment-table/appointment-table';
