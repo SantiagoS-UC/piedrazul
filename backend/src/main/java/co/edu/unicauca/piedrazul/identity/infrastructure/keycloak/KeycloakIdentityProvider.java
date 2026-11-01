@@ -19,7 +19,8 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Adaptador del puerto {@link IdentityProvider} sobre la API REST de administración de Keycloak.
- * Se autentica con la cuenta de servicio del cliente piedrazul-backend.
+ * Se autentica con la cuenta de servicio del cliente piedrazul-backend, que necesita los roles
+ * manage-users, view-users, query-users y view-realm (este último para leer el rol a asignar).
  */
 @Component
 @EnableConfigurationProperties(KeycloakProperties.class)
@@ -78,7 +79,13 @@ class KeycloakIdentityProvider implements IdentityProvider {
         // Keycloak responde 201 con la ubicación del usuario nuevo: .../users/{id}
         String path = String.valueOf(location);
         UUID id = UUID.fromString(path.substring(path.lastIndexOf('/') + 1));
-        assignRealmRole(id, account.role().name(), token);
+        try {
+            assignRealmRole(id, account.role().name(), token);
+        } catch (RuntimeException ex) {
+            // Sin rol la cuenta no sirve y bloquearía el correo para un nuevo intento de registro.
+            deleteAccount(id);
+            throw ex;
+        }
         return id;
     }
 
