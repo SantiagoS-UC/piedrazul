@@ -29,8 +29,7 @@ services:
       - "8180:8180"
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
-      - keycloak-data:/opt/keycloak/data/h2
-
+      - keycloak-data:/opt/keycloak/data
 volumes:
   piedrazul-data:
   keycloak-data:
