@@ -75,6 +75,14 @@ Los crean las migraciones de Flyway. Todas las contraseñas siguen el formato `<
 | Agendador | agendador@gmail.com | agendador-1234 |
 | Paciente | paciente1@gmail.com | paciente1-1234 |
 | Paciente | paciente2@gmail.com | paciente2-1234 |
+| Profesional (Medicina general) | laura.martinez@gmail.com | laura.martinez-1234 |
+| Profesional (Medicina general) | andres.vargas@gmail.com | andres.vargas-1234 |
+| Profesional (Terapia neural) | diana.rojas@gmail.com | diana.rojas-1234 |
+| Profesional (Terapia neural) | jorge.castillo@gmail.com | jorge.castillo-1234 |
+| Profesional (Quiropraxia) | natalia.guzman@gmail.com | natalia.guzman-1234 |
+| Profesional (Quiropraxia) | camilo.benavides@gmail.com | camilo.benavides-1234 |
+| Profesional (Fisioterapia) | paula.zambrano@gmail.com | paula.zambrano-1234 |
+| Profesional (Fisioterapia) | mauricio.lopez@gmail.com | mauricio.lopez-1234 |
 
 También se cargan ocho profesionales, dos por especialidad, y la disponibilidad de seis de ellos.
 Jorge Castillo y Mauricio López quedan sin configurar a propósito, para mostrar que un profesional
