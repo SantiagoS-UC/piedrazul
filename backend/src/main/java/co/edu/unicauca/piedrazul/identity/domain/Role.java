@@ -4,8 +4,7 @@ public enum Role {
     PATIENT,
     SCHEDULER,
     /**
-     * Médico o terapista. Su cuenta comparte el identificador con su registro en el módulo
-     * professionals, así el token dice directamente de qué profesional se trata.
+     * Médico o terapista. El id de su cuenta es el mismo de su registro en professionals.
      */
     PROFESSIONAL,
     ADMIN
