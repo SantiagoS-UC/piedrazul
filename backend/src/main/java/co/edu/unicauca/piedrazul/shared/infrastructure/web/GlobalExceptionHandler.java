@@ -1,5 +1,6 @@
 package co.edu.unicauca.piedrazul.shared.infrastructure.web;
 
+import co.edu.unicauca.piedrazul.shared.domain.AccessForbiddenException;
 import co.edu.unicauca.piedrazul.shared.domain.AuthenticationFailedException;
 import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
 import co.edu.unicauca.piedrazul.shared.domain.DuplicateResourceException;
@@ -55,6 +56,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiError.of("No tienes permiso para realizar esta acción."));
+    }
+
+    @ExceptionHandler(AccessForbiddenException.class)
+    ResponseEntity<ApiError> handleAccessForbidden(AccessForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiError.of(ex.getMessage()));
     }
 
     // Dos peticiones simultáneas pueden pasar las validaciones previas y chocar en una restricción

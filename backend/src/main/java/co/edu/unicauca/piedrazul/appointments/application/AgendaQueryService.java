@@ -19,7 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * HU-04: citas de un profesional en una fecha, con los datos del paciente para el agendador.
+ * HU-04: citas de un profesional en una fecha, con los datos de cada paciente. La usan el listado
+ * del agendador y la exportación del agendador y del profesional.
  */
 @Service
 @Transactional(readOnly = true)
@@ -37,7 +38,8 @@ public class AgendaQueryService {
     }
 
     // Incluye profesionales inactivos: el agendador puede necesitar consultar citas que ya tenían.
-    public ProfessionalAgenda agendaOf(UUID professionalId, LocalDate date) {
+    public ProfessionalAgenda agendaOf(Requester requester, UUID requestedProfessionalId, LocalDate date) {
+        UUID professionalId = requester.agendaOwner(requestedProfessionalId);
         ProfessionalSummary professional = professionalCatalog.findById(professionalId)
                 .orElseThrow(() -> new ResourceNotFoundException("El profesional seleccionado no existe."));
         List<Appointment> appointments = appointmentRepository.findByProfessionalAndDate(professionalId, date)

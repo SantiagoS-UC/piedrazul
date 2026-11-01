@@ -1,4 +1,4 @@
-export type Role = 'PATIENT' | 'SCHEDULER' | 'ADMIN';
+export type Role = 'PATIENT' | 'SCHEDULER' | 'PROFESSIONAL' | 'ADMIN';
 
 export interface Session {
   token: string;
@@ -11,11 +11,13 @@ export interface Session {
 export const ROLE_LABELS: Record<Role, string> = {
   PATIENT: 'Paciente',
   SCHEDULER: 'Agendador',
+  PROFESSIONAL: 'Profesional',
   ADMIN: 'Administrador',
 };
 
 export const ROLE_HOME: Record<Role, string> = {
   PATIENT: '/patient/book-appointment',
   SCHEDULER: '/scheduler/appointments',
+  PROFESSIONAL: '/staff/export-appointments',
   ADMIN: '/admin/configuration',
 };
