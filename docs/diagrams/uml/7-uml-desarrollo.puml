@@ -1,0 +1,56 @@
+@startuml uml-3-desarrollo-paquetes
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam packageStyle folder
+skinparam PackageBackgroundColor white
+skinparam PackageBorderColor #1168BD
+skinparam PackageFontColor #1168BD
+skinparam PackageBorderThickness 1.5
+set separator none
+skinparam LegendBackgroundColor white
+skinparam LegendBorderColor #999999
+skinparam LegendFontSize 12
+title Vista de desarrollo: paquetes\n<size:12><color:#666666>Modelo 4+1</color></size>
+
+package "backend" as backend {
+  package "appointments" as appointments {
+  }
+  package "configuration" as configuration {
+  }
+  package "professionals" as professionals {
+  }
+  package "identity" as identity {
+  }
+  package "shared" as shared {
+  }
+}
+
+package "frontend" as frontend {
+  package "features" as features {
+  }
+  package "core" as core {
+  }
+  package "shared" as fshared {
+  }
+}
+
+appointments ..> identity
+appointments ..> professionals
+appointments ..> configuration
+configuration ..> professionals
+appointments ..> shared
+identity ..> shared
+features ..> core
+features ..> fshared
+core ..> fshared
+
+legend bottom
+  Cada módulo del backend tiene las capas domain, application e infrastructure.
+endlegend
+@enduml

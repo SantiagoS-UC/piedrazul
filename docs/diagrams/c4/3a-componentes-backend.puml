@@ -1,0 +1,83 @@
+@startuml c4-3a-componentes-backend
+!pragma layout smetana
+sprite $browser [48x48/16z] Oo04HW4_qO2Ewe4q6icFwMeq5We9f501bTMZQy3l_e4EJyAfO5GzBZ2gVbJzg7gwb5UaQI2n1cCOYG
+sprite $database [48x48/16z] xTMv3O0m40LHTx3zTqkCHXfh8iuVikzpWzVRCkSKwvsnDCq6jljWI6rCxOtPxf_Upv_UGxys4bwVBxsyF-AHb_ZV__xtzV_P_i_n_z_Nbz1ewwC5zjuv
+sprite $component [48x48/16z] Oo0QZ09-Gc08gCVfEVgfntJtmAj7bg2_-e4F7_gdX-6MFaVJvsZw7FBrnSW3
+sprite $system [48x48/16z] OnWPO1JmumVegWa3LEKaQU0d3g2g9-mxD0xH6i1CGc1K_QZwKVMavIzIyo-2Ht61Gdc1HMBvEIJ1A
+
+!$PERSONA = "#white;line:2F7D1A;line.bold;text:2F7D1A"
+!$AZUL = "#white;line:1168BD;line.bold;text:1168BD"
+!$LIMITE = "#white;line:1168BD;text:1168BD"
+!$MODULO = "#white;line:1168BD;line.dashed;text:1168BD"
+!$EXTERNO = "#white;line:7A7A7A;line.bold;text:5C5C5C"
+
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam roundCorner 20
+skinparam wrapWidth 210
+skinparam defaultTextAlignment center
+skinparam componentStyle uml1
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
+skinparam ArrowThickness 1.3
+skinparam DatabaseBorderThickness 2
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam LegendBackgroundColor white
+skinparam LegendBorderColor #999999
+skinparam LegendFontColor #444444
+skinparam LegendFontSize 12
+
+title Diagrama de componentes: API de Piedrazul\n<size:12><color:#666666>Modelo C4, nivel 3</color></size>
+
+rectangle "<$browser{scale=0.6,color=#1168BD}>\n<size:15><b>Aplicación web</b></size>\n<size:10>[Angular 22]</size>" as spa $AZUL
+
+rectangle "<size:15><b>API de Piedrazul</b></size>\n<size:10>[Spring Boot 4, Spring Modulith]</size>" as api $LIMITE {
+  component "<size:14><b>Seguridad</b></size>\n<size:10>[Spring Security]</size>\n\nValida el token y el rol." as security $AZUL
+  rectangle "<b>identity</b>" as identity $MODULO {
+    component "<size:14><b>Pacientes</b></size>\n<size:10>[Componente]</size>\n\nRegistro y búsqueda por documento." as patients $AZUL
+    component "<size:14><b>Adaptador Keycloak</b></size>\n<size:10>[Componente]</size>\n\nCrea cuentas y asigna roles." as kcAdapter $AZUL
+  }
+  rectangle "<b>professionals</b>" as professionals $MODULO {
+    component "<size:14><b>Catálogo</b></size>\n<size:10>[Componente]</size>\n\nMédicos y terapistas." as catalog $AZUL
+  }
+  rectangle "<b>configuration</b>" as configuration $MODULO {
+    component "<size:14><b>Parámetros</b></size>\n<size:10>[Componente]</size>\n\nVentana y disponibilidad." as settings $AZUL
+  }
+  rectangle "<b>appointments</b>" as appointments $MODULO {
+    component "<size:14><b>Citas</b></size>\n<size:10>[Componente]</size>\n\nAgendar, listar, exportar e historial." as appointmentsComp $AZUL
+    component "<size:14><b>Exportador CSV</b></size>\n<size:10>[Componente]</size>\n\nGenera el archivo de la agenda." as exporter $AZUL
+  }
+}
+
+database "<size:15><b>Base de datos</b></size>\n<size:10>[PostgreSQL 17]</size>" as db $AZUL
+rectangle "<$system{scale=0.6,color=#7A7A7A}>\n<size:15><b>Keycloak</b></size>\n<size:10>[Sistema externo]</size>" as keycloak $EXTERNO
+
+spa -[dashed]-> security : "Peticiones con JWT"
+security -[dashed]-> patients
+security -[dashed]-> catalog
+security -[dashed]-> settings
+security -[dashed]-> appointmentsComp
+patients -[dashed]-> kcAdapter : "Usa"
+appointmentsComp -[dashed]-> exporter : "Usa"
+appointmentsComp -[dashed]-> patients : "PatientDirectory"
+appointmentsComp -[dashed]-> catalog : "ProfessionalCatalog"
+appointmentsComp -[dashed]-> settings : "SchedulingSettings"
+kcAdapter -[dashed]-> keycloak : "Admin REST API"
+security -[dashed]-> keycloak : "Llaves públicas"
+appointments -[dashed]-> db
+identity -[dashed]-> db
+configuration -[dashed]-> db
+professionals -[dashed]-> db
+
+legend right
+  <b>Convenciones</b>
+  <$browser{scale=0.35,color=#1168BD}> Aplicación de una sola página
+  <$database{scale=0.35,color=#1168BD}> Base de datos
+  <$component{scale=0.35,color=#1168BD}> Componente
+  <$system{scale=0.35,color=#7A7A7A}> Sistema externo
+  Rectángulo punteado: módulo
+  <color:#444444>- - - ></color> Relación
+endlegend
+@enduml

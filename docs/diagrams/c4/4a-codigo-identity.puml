@@ -1,0 +1,56 @@
+@startuml c4-4a-codigo-identity
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ClassBackgroundColor white
+skinparam ClassBorderColor #1168BD
+skinparam ClassFontColor #1168BD
+skinparam ClassBorderThickness 1.3
+skinparam PackageBorderColor #666666
+skinparam PackageBackgroundColor white
+skinparam ArrowColor #444444
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+hide empty members
+hide circle
+set separator none
+
+title Diagrama de clases: registro con Keycloak\n<size:12><color:#666666>Modelo C4, nivel 4</color></size>
+
+package "application" {
+  class RegisterPatientService {
+    +register(command) : UUID
+  }
+}
+package "domain" {
+  interface IdentityProvider {
+    +emailExists(email) : boolean
+    +createAccount(account) : UUID
+    +deleteAccount(id)
+  }
+  interface PatientRepository {
+    +existsByDocument(document) : boolean
+    +save(patient)
+  }
+  class Patient {
+    +register(...) : Patient
+    +withId(id) : Patient
+  }
+}
+package "infrastructure" {
+  class KeycloakIdentityProvider {
+    +createAccount(account) : UUID
+  }
+  class PatientRepositoryAdapter {
+    +save(patient)
+  }
+}
+
+RegisterPatientService ..> IdentityProvider
+RegisterPatientService ..> PatientRepository
+RegisterPatientService ..> Patient
+KeycloakIdentityProvider .up.|> IdentityProvider
+PatientRepositoryAdapter .up.|> PatientRepository
+@enduml
