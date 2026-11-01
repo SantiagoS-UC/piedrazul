@@ -1,16 +1,13 @@
 ### Peticiones de prueba de los módulos professionals y configuration.
-### Ejecuta primero el inicio de sesión: guarda el token y las demás peticiones lo usan.
+### Primero se pide el token a Keycloak (necesita docker compose up -d); las demás peticiones lo usan.
 
 ### Inicio de sesión del administrador (guarda el token en {{adminToken}})
-POST http://localhost:8081/api/auth/login
-Content-Type: application/json
+POST http://localhost:8180/realms/piedrazul/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "email": "admin@gmail.com",
-  "password": "admin-1234"
-}
+grant_type=password&client_id=piedrazul-dev-tools&username=admin@gmail.com&password=admin-1234
 
-> {% client.global.set("adminToken", response.body.token); %}
+> {% client.global.set("adminToken", response.body.access_token); %}
 
 ### Profesionales en orden alfabético por apellido
 GET http://localhost:8081/api/professionals
@@ -75,15 +72,12 @@ Content-Type: application/json
 }
 
 ### Un paciente no puede ver la configuración: responde 403
-POST http://localhost:8081/api/auth/login
-Content-Type: application/json
+POST http://localhost:8180/realms/piedrazul/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "email": "paciente1@gmail.com",
-  "password": "paciente1-1234"
-}
+grant_type=password&client_id=piedrazul-dev-tools&username=paciente1@gmail.com&password=paciente1-1234
 
-> {% client.global.set("patientToken", response.body.token); %}
+> {% client.global.set("patientToken", response.body.access_token); %}
 
 ###
 GET http://localhost:8081/api/configuration/scheduling-window

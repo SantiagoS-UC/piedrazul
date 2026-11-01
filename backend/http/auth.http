@@ -1,25 +1,22 @@
 ### Peticiones de prueba del módulo identity. Se ejecutan con el ▶ de cada una en IntelliJ.
-### El backend debe estar corriendo (puerto 8081) con la base de datos de docker-compose.
+### El backend debe estar corriendo (puerto 8081) con la base de datos y Keycloak de docker-compose.
 
-### Inicio de sesión del administrador (usuario inicial)
-POST http://localhost:8081/api/auth/login
-Content-Type: application/json
+### Token del administrador desde Keycloak, con el cliente de pruebas piedrazul-dev-tools
+POST http://localhost:8180/realms/piedrazul/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "email": "admin@gmail.com",
-  "password": "admin-1234"
-}
+grant_type=password&client_id=piedrazul-dev-tools&username=admin@gmail.com&password=admin-1234
 
-### Inicio de sesión con contraseña incorrecta: responde 401 con mensaje genérico
-POST http://localhost:8081/api/auth/login
-Content-Type: application/json
+### Contraseña incorrecta: Keycloak responde 401 (invalid_grant). Tras 5 intentos bloquea la cuenta un rato
+POST http://localhost:8180/realms/piedrazul/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "email": "admin@gmail.com",
-  "password": "otra-1234"
-}
+grant_type=password&client_id=piedrazul-dev-tools&username=admin@gmail.com&password=otra-1234
 
-### Registro de un paciente nuevo
+### Petición sin token: el backend responde 401
+GET http://localhost:8081/api/professionals
+
+### Registro de un paciente nuevo: crea su cuenta en Keycloak y sus datos en la base de datos
 POST http://localhost:8081/api/auth/register
 Content-Type: application/json
 

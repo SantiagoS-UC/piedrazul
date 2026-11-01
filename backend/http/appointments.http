@@ -1,16 +1,13 @@
 ### Peticiones de prueba del agendamiento de citas (HU-03).
-### Ejecuta primero el inicio de sesión: guarda el token y las demás peticiones lo usan.
+### Primero se pide el token a Keycloak (necesita docker compose up -d); las demás peticiones lo usan.
 
 ### Inicio de sesión de la paciente Ana María Gómez (guarda el token en {{patientToken}})
-POST http://localhost:8081/api/auth/login
-Content-Type: application/json
+POST http://localhost:8180/realms/piedrazul/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "email": "paciente1@gmail.com",
-  "password": "paciente1-1234"
-}
+grant_type=password&client_id=piedrazul-dev-tools&username=paciente1@gmail.com&password=paciente1-1234
 
-> {% client.global.set("patientToken", response.body.token); %}
+> {% client.global.set("patientToken", response.body.access_token); %}
 
 ### Paso 2: médicos de medicina general que se pueden agendar
 GET http://localhost:8081/api/appointments/bookable-professionals?specialty=GENERAL_MEDICINE
@@ -46,15 +43,12 @@ Content-Type: application/json
 }
 
 ### HU-04: inicio de sesión del agendador (guarda el token en {{schedulerToken}})
-POST http://localhost:8081/api/auth/login
-Content-Type: application/json
+POST http://localhost:8180/realms/piedrazul/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "email": "agendador@gmail.com",
-  "password": "agendador-1234"
-}
+grant_type=password&client_id=piedrazul-dev-tools&username=agendador@gmail.com&password=agendador-1234
 
-> {% client.global.set("schedulerToken", response.body.token); %}
+> {% client.global.set("schedulerToken", response.body.access_token); %}
 
 ### Citas de Laura Martínez en una fecha, ordenadas por hora
 GET http://localhost:8081/api/appointments/agenda?professionalId=20000000-0000-0000-0000-000000000001&date=2026-09-29
@@ -69,15 +63,12 @@ GET http://localhost:8081/api/appointments/agenda/export?professionalId=20000000
 Authorization: Bearer {{schedulerToken}}
 
 ### RF4: inicio de sesión de la médica Laura Martínez (guarda el token en {{professionalToken}})
-POST http://localhost:8081/api/auth/login
-Content-Type: application/json
+POST http://localhost:8180/realms/piedrazul/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
 
-{
-  "email": "laura.martinez@gmail.com",
-  "password": "laura.martinez-1234"
-}
+grant_type=password&client_id=piedrazul-dev-tools&username=laura.martinez@gmail.com&password=laura.martinez-1234
 
-> {% client.global.set("professionalToken", response.body.token); %}
+> {% client.global.set("professionalToken", response.body.access_token); %}
 
 ### La profesional exporta su propia agenda sin enviar su id
 GET http://localhost:8081/api/appointments/agenda/export?date=2026-09-29

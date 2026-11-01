@@ -30,6 +30,21 @@ class PatientTest {
     }
 
     @Test
+    @DisplayName("Conserva los datos al recibir el identificador de su cuenta")
+    void keepsDataWithAccountId() {
+        Patient patient = Patient.register(ID, NAME, DOCUMENT, LocalDate.of(1958, 3, 14), Gender.FEMALE, PHONE,
+                TODAY);
+        UUID accountId = UUID.randomUUID();
+
+        Patient withAccount = patient.withId(accountId);
+
+        assertThat(withAccount.id()).isEqualTo(accountId);
+        assertThat(withAccount.name()).isEqualTo(NAME);
+        assertThat(withAccount.document()).isEqualTo(DOCUMENT);
+        assertThat(withAccount.phone()).isEqualTo(PHONE);
+    }
+
+    @Test
     @DisplayName("Acepta un paciente nacido hoy")
     void acceptsBirthDateToday() {
         Patient patient = Patient.register(ID, NAME, DOCUMENT, TODAY, Gender.MALE, PHONE, TODAY);

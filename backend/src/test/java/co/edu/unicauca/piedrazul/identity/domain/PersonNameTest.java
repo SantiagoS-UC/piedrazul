@@ -15,7 +15,8 @@ class PersonNameTest {
         PersonName name = new PersonName("Ana", "María", "Gómez", "Ruiz");
 
         assertThat(name.fullName()).isEqualTo("Ana María Gómez Ruiz");
-        assertThat(name.shortName()).isEqualTo("Ana Gómez");
+        assertThat(name.givenNames()).isEqualTo("Ana María");
+        assertThat(name.lastNames()).isEqualTo("Gómez Ruiz");
     }
 
     @Test
@@ -26,6 +27,8 @@ class PersonNameTest {
         assertThat(name.middleName()).isNull();
         assertThat(name.secondLastName()).isNull();
         assertThat(name.fullName()).isEqualTo("Carlos Muñoz");
+        assertThat(name.givenNames()).isEqualTo("Carlos");
+        assertThat(name.lastNames()).isEqualTo("Muñoz");
     }
 
     @Test

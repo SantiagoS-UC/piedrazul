@@ -46,6 +46,13 @@ public class Patient {
         return new Patient(id, name, document, birthDate, gender, phone);
     }
 
+    /**
+     * El identificador definitivo lo asigna el proveedor de identidad al crear la cuenta.
+     */
+    public Patient withId(UUID accountId) {
+        return new Patient(accountId, name, document, birthDate, gender, phone);
+    }
+
     public UUID id() {
         return id;
     }

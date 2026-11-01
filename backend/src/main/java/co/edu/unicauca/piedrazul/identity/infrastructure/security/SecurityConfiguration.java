@@ -1,10 +1,5 @@
 package co.edu.unicauca.piedrazul.identity.infrastructure.security;
 
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
-import java.nio.charset.StandardCharsets;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,22 +7,17 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * API sin estado protegida con JWT. Cada módulo restringe sus endpoints por rol con
- * {@code @PreAuthorize("hasRole('...')")}, sin depender de las clases de este módulo.
+ * API sin estado que acepta los tokens que emite Keycloak. El decodificador lo crea Spring Boot a
+ * partir de {@code spring.security.oauth2.resourceserver.jwt.issuer-uri}: descarga las llaves
+ * públicas del realm y rechaza tokens de otro emisor o vencidos. Cada módulo restringe sus
+ * endpoints con {@code @PreAuthorize("hasRole('...')")}.
  */
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties(JwtProperties.class)
 class SecurityConfiguration {
 
     @Bean
@@ -38,7 +28,7 @@ class SecurityConfiguration {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers("/actuator/health", "/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
@@ -46,28 +36,11 @@ class SecurityConfiguration {
         return http.build();
     }
 
-    @Bean
-    JwtEncoder jwtEncoder(JwtProperties properties) {
-        return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey(properties)));
-    }
-
-    @Bean
-    JwtDecoder jwtDecoder(JwtProperties properties) {
-        return NimbusJwtDecoder.withSecretKey(secretKey(properties)).macAlgorithm(MacAlgorithm.HS256).build();
-    }
-
-    // Convierte el claim "role" del token en la autoridad ROLE_<rol> que usa hasRole().
+    // El nombre de la autenticación sigue siendo el claim sub: el id de la cuenta en Keycloak.
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-        authorities.setAuthoritiesClaimName(JwtTokenIssuer.ROLE_CLAIM);
-        authorities.setAuthorityPrefix("ROLE_");
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        converter.setJwtGrantedAuthoritiesConverter(new KeycloakRealmRoleConverter());
         return converter;
-    }
-
-    private static SecretKey secretKey(JwtProperties properties) {
-        return new SecretKeySpec(properties.secret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     }
 }

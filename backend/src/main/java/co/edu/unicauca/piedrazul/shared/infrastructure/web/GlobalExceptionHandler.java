@@ -1,7 +1,6 @@
 package co.edu.unicauca.piedrazul.shared.infrastructure.web;
 
 import co.edu.unicauca.piedrazul.shared.domain.AccessForbiddenException;
-import co.edu.unicauca.piedrazul.shared.domain.AuthenticationFailedException;
 import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
 import co.edu.unicauca.piedrazul.shared.domain.DuplicateResourceException;
 import co.edu.unicauca.piedrazul.shared.domain.ResourceNotFoundException;
@@ -20,6 +19,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -47,9 +47,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of(ex.getMessage()));
     }
 
-    @ExceptionHandler(AuthenticationFailedException.class)
-    ResponseEntity<ApiError> handleAuthenticationFailed(AuthenticationFailedException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiError.of(ex.getMessage()));
+    // Keycloak no respondió, por ejemplo durante el registro de un paciente.
+    @ExceptionHandler(ResourceAccessException.class)
+    ResponseEntity<ApiError> handleUnavailableService(ResourceAccessException ex) {
+        log.error("Servicio externo no disponible", ex);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiError.of("No pudimos completar la operación en este momento. "
+                        + "Intenta de nuevo en unos minutos."));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

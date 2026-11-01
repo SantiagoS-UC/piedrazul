@@ -23,16 +23,19 @@ public record PersonName(String firstName, String middleName, String firstLastNa
     }
 
     public String fullName() {
-        return Stream.of(firstName, middleName, firstLastName, secondLastName)
-                .filter(Objects::nonNull)
-                .collect(Collectors.joining(" "));
+        return join(firstName, middleName, firstLastName, secondLastName);
     }
 
-    /**
-     * Primer nombre y primer apellido, como se muestra en el menú de la aplicación.
-     */
-    public String shortName() {
-        return firstName + " " + firstLastName;
+    public String givenNames() {
+        return join(firstName, middleName);
+    }
+
+    public String lastNames() {
+        return join(firstLastName, secondLastName);
+    }
+
+    private static String join(String... parts) {
+        return Stream.of(parts).filter(Objects::nonNull).collect(Collectors.joining(" "));
     }
 
     private static String required(String field, String value, String message) {
