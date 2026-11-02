@@ -1,56 +1,122 @@
 @startuml uml-3-desarrollo-paquetes
 !pragma layout smetana
+' Vista de desarrollo del modelo 4+1: cómo está organizado el código fuente
+' y qué paquetes dependen de cuáles. Con *, lo nuevo del Sprint 2.
 skinparam defaultFontName Arial
 skinparam shadowing false
-skinparam ArrowColor #444444
-skinparam ArrowFontColor #444444
-skinparam ArrowFontSize 11
-skinparam TitleFontSize 18
-skinparam TitleFontColor #333333
 skinparam packageStyle folder
 skinparam PackageBackgroundColor white
 skinparam PackageBorderColor #1168BD
 skinparam PackageFontColor #1168BD
 skinparam PackageBorderThickness 1.5
-set separator none
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
 skinparam LegendBackgroundColor white
 skinparam LegendBorderColor #999999
-skinparam LegendFontSize 12
-title Vista de desarrollo: paquetes\n<size:12><color:#666666>Modelo 4+1</color></size>
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+set separator none
+title Vista de desarrollo (4+1): paquetes del código fuente\n<size:12><color:#666666>Flechas punteadas: dependencia (<<use>>). Con *, lo nuevo del Sprint 2.</color></size>
 
-package "backend" as backend {
+package "backend (co.edu.unicauca.piedrazul)" as backend {
   package "appointments" as appointments {
+    package "infrastructure\n(web, persistence, export *)" as apInfra {
+    }
+    package "application" as apApp {
+    }
+    package "domain" as apDom {
+    }
   }
   package "configuration" as configuration {
+    package "infrastructure\n(web, persistence)" as cfInfra {
+    }
+    package "application" as cfApp {
+    }
+    package "domain" as cfDom {
+    }
   }
   package "professionals" as professionals {
+    package "infrastructure\n(web, persistence)" as prInfra {
+    }
+    package "application" as prApp {
+    }
+    package "domain" as prDom {
+    }
   }
   package "identity" as identity {
+    package "infrastructure\n(web, persistence,\nsecurity, keycloak *)" as idInfra {
+    }
+    package "application" as idApp {
+    }
+    package "domain" as idDom {
+    }
   }
   package "shared" as shared {
+    package "domain" as shDom {
+    }
+    package "infrastructure" as shInfra {
+    }
   }
 }
 
-package "frontend" as frontend {
+apInfra ..> apApp
+apApp ..> apDom
+cfInfra ..> cfApp
+cfApp ..> cfDom
+prInfra ..> prApp
+prApp ..> prDom
+idInfra ..> idApp
+idApp ..> idDom
+
+apApp ..> identity : PatientDirectory
+apApp ..> professionals : ProfessionalCatalog
+apApp ..> configuration : SchedulingSettings
+cfApp ..> professionals : ProfessionalCatalog
+apDom ..> shDom
+cfDom ..> shDom
+prDom ..> shDom
+idDom ..> shDom
+
+package "frontend (src/app)" as frontend {
   package "features" as features {
+    package "auth" as fAuth {
+    }
+    package "patient" as fPatient {
+    }
+    package "staff *\n(agendador y profesional)" as fStaff {
+    }
+    package "admin" as fAdmin {
+    }
+    package "common" as fCommon {
+    }
   }
   package "core" as core {
+    package "auth\n(keycloak-js *)" as cAuth {
+    }
+    package "http" as cHttp {
+    }
+    package "professionals" as cProfessionals {
+    }
   }
-  package "shared" as fshared {
+  package "shared" as fShared {
+    package "ui (atoms, molecules,\norganisms, templates)" as sUi {
+    }
+    package "format" as sFormat {
+    }
+    package "validation" as sValidation {
+    }
   }
 }
 
-appointments ..> identity
-appointments ..> professionals
-appointments ..> configuration
-configuration ..> professionals
-appointments ..> shared
-identity ..> shared
 features ..> core
-features ..> fshared
-core ..> fshared
+features ..> fShared
+core ..> fShared
 
-legend bottom
-  Cada módulo del backend tiene las capas domain, application e infrastructure.
+legend right
+  Spring Modulith verifica estas reglas en ModularityTest:
+  si un módulo usa una clase interna de otro, la prueba falla.
+  La integración con Keycloak quedó solo en
+  identity.infrastructure; ningún otro módulo cambió.
 endlegend
 @enduml
