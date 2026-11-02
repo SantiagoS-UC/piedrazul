@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Piedrazul - Keycloak",
-    "description": "Gestión de usuarios y roles del realm piedrazul(NF1). Requiere docker compose up -d y, para la carpeta 2, el backend corriendo. Se puede ejecutar completa con el Runner las veces que se quiera: el token del administrador se renueva solo cuando vence y \"Crear usuario\" elimina antes al usuario de prueba si quedó de una ejecución anterior.",
+    "description": "Gestión de usuarios y roles del realm piedrazul (NF1). Requiere docker compose up -d y, para la carpeta 2, el backend corriendo. Se puede ejecutar completa con el Runner las veces que se quiera: el token del administrador se renueva solo cuando vence y \"Crear usuario\" elimina antes al usuario de prueba si quedó de una ejecución anterior.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
