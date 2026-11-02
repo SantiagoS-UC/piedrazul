@@ -1,4 +1,8 @@
 @startuml c4-2-contenedores
+
+' Diagrama C4 nivel 2 (contenedores) del sistema Piedrazul
+' Muestra los contenedores del sistema y cómo se comunican entre sí y con los sistemas externos
+
 !pragma layout smetana
 sprite $person [48x48/16z] {
 xTF14K1040LH6Kp-sQe-_wrH3O2-W0VOdHvHaTFaD2bEuj73DppMEnyRFO_Dztd_VVptz__NZnyIlCOvJOgJv7b2xEqFZNHtD7bxk1Rz--VHx_ruyEFDZsS_
