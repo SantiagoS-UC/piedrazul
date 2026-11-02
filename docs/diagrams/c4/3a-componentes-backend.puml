@@ -1,4 +1,9 @@
 @startuml c4-3a-componentes-backend
+
+' Diagrama C4 nivel 3 (componentes) de la API de Piedrazul
+' Muestra los módulos del backend (identity, professionals, configuration, appointments),
+' sus componentes y su relación con la aplicación web, la base de datos y Keycloak
+
 !pragma layout smetana
 sprite $browser [48x48/16z] Oo04HW4_qO2Ewe4q6icFwMeq5We9f501bTMZQy3l_e4EJyAfO5GzBZ2gVbJzg7gwb5UaQI2n1cCOYG
 sprite $database [48x48/16z] xTMv3O0m40LHTx3zTqkCHXfh8iuVikzpWzVRCkSKwvsnDCq6jljWI6rCxOtPxf_Upv_UGxys4bwVBxsyF-AHb_ZV__xtzV_P_i_n_z_Nbz1ewwC5zjuv
