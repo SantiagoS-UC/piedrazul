@@ -1,4 +1,8 @@
 @startuml c4-1-contexto
+
+' Diagrama C4 nivel 1 (contexto) del sistema Piedrazul
+' Muestra los actores del sistema y su relación con Keycloak
+
 !pragma layout smetana
 sprite $person [48x48/16z] {
 xTF14K1040LH6Kp-sQe-_wrH3O2-W0VOdHvHaTFaD2bEuj73DppMEnyRFO_Dztd_VVptz__NZnyIlCOvJOgJv7b2xEqFZNHtD7bxk1Rz--VHx_ruyEFDZsS_
