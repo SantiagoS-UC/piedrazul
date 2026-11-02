@@ -1,4 +1,9 @@
 @startuml c4-3b-componentes-frontend
+
+' Diagrama C4 nivel 3 (componentes) de la aplicación web de Piedrazul
+' Muestra los componentes del frontend en Angular (rutas, páginas, UI, clientes de la API y sesión)
+' y su relación con el usuario, la API y Keycloak
+
 !pragma layout smetana
 sprite $person [48x48/16z] {
 xTF14K1040LH6Kp-sQe-_wrH3O2-W0VOdHvHaTFaD2bEuj73DppMEnyRFO_Dztd_VVptz__NZnyIlCOvJOgJv7b2xEqFZNHtD7bxk1Rz--VHx_ruyEFDZsS_
