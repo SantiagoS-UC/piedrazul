@@ -6,51 +6,148 @@ skinparam classAttributeIconSize 0
 skinparam ClassBackgroundColor white
 skinparam ClassBorderColor #1168BD
 skinparam ClassFontColor #1168BD
-skinparam ClassBorderThickness 1.3
 skinparam PackageBorderColor #666666
-skinparam PackageBackgroundColor white
 skinparam ArrowColor #444444
 skinparam ArrowFontSize 11
 skinparam TitleFontSize 18
-skinparam TitleFontColor #333333
+skinparam NoteBackgroundColor white
+skinparam NoteBorderColor #999999
+skinparam LegendBackgroundColor white
+skinparam LegendBorderColor #999999
 hide empty members
 hide circle
 set separator none
+title Diagrama de clases: módulo identity\n<size:12><color:#666666>Modelo C4, nivel 4</color></size>
 
-title Diagrama de clases: registro con Keycloak\n<size:12><color:#666666>Modelo C4, nivel 4</color></size>
+package "identity (API pública)" as pub {
+  interface PatientDirectory {
+    + findByIds(ids) : List<PatientSummary>
+  }
+  class PatientSummary <<record>>
+}
 
-package "application" {
-  class RegisterPatientService {
-    +register(command) : UUID
+package "identity.infrastructure" as infra {
+  package web {
+    class AuthController {
+      ~ register(request) : RegisterPatientResponse
+    }
+    class PatientController {
+      ~ search(document) : List<PatientSearchResponse>
+    }
+  }
+  package security {
+    class SecurityConfiguration {
+      ~ jwtAuthenticationConverter() : JwtAuthenticationConverter
+    }
+    class KeycloakRealmRoleConverter {
+      + convert(jwt : Jwt) : Collection<GrantedAuthority>
+    }
+  }
+  package keycloak {
+    class KeycloakIdentityProvider {
+      + emailExists(email : Email) : boolean
+      + createAccount(account : NewUserAccount) : UUID
+      + deleteAccount(accountId : UUID) : void
+      - adminToken() : String
+    }
+  }
+  package persistence {
+    class PatientRepositoryAdapter
   }
 }
-package "domain" {
-  interface IdentityProvider {
-    +emailExists(email) : boolean
-    +createAccount(account) : UUID
-    +deleteAccount(id)
+
+package "identity.application" as app {
+  class RegisterPatientService {
+    - passwordPolicy : PasswordPolicy
+    + register(command : RegisterPatientCommand) : UUID
   }
-  interface PatientRepository {
-    +existsByDocument(document) : boolean
-    +save(patient)
+  class PatientSearchService {
+    + searchByDocument(documentPrefix : String) : List<PatientSummary>
+  }
+  class PatientDirectoryService {
+    + findByIds(ids) : List<PatientSummary>
+  }
+}
+
+package "identity.domain" as dom {
+  interface IdentityProvider <<puerto>> {
+    + emailExists(email : Email) : boolean
+    + createAccount(account : NewUserAccount) : UUID
+    + deleteAccount(accountId : UUID) : void
+  }
+  interface PatientRepository <<puerto>> {
+    + existsByDocument(document : IdentityDocument) : boolean
+    + save(patient : Patient) : void
+    + findAllById(ids) : List<Patient>
+    + findByDocumentNumberStartingWith(prefix, limit) : List<Patient>
   }
   class Patient {
-    +register(...) : Patient
-    +withId(id) : Patient
+    + {static} register(...) : Patient
+    + withId(accountId : UUID) : Patient
   }
-}
-package "infrastructure" {
-  class KeycloakIdentityProvider {
-    +createAccount(account) : UUID
+  class NewUserAccount <<record>> {
+    + email : Email
+    + password : String
+    + name : PersonName
+    + role : Role
   }
-  class PatientRepositoryAdapter {
-    +save(patient)
+  class PersonName <<record>> {
+    + fullName() : String
+  }
+  class IdentityDocument <<record>> {
+    + type : DocumentType
+    + number : String
+  }
+  class Email <<record>>
+  class PhoneNumber <<record>>
+  class PasswordPolicy {
+    + validate(rawPassword : String) : void
+  }
+  enum Role {
+    PATIENT
+    SCHEDULER
+    PROFESSIONAL
+    ADMIN
   }
 }
 
-RegisterPatientService ..> IdentityProvider
-RegisterPatientService ..> PatientRepository
-RegisterPatientService ..> Patient
-KeycloakIdentityProvider .up.|> IdentityProvider
-PatientRepositoryAdapter .up.|> PatientRepository
+web -[hidden]down- security
+security -[hidden]down- keycloak
+infra -[hidden]down- app
+app -[hidden]down- dom
+pub -[hidden]down- dom
+
+AuthController ..> RegisterPatientService
+PatientController ..> PatientSearchService
+SecurityConfiguration ..> KeycloakRealmRoleConverter : crea
+KeycloakRealmRoleConverter ..> Role : filtra los roles\ndel realm
+
+RegisterPatientService --> IdentityProvider
+RegisterPatientService --> PatientRepository
+RegisterPatientService ..> PasswordPolicy
+RegisterPatientService ..> NewUserAccount : crea
+PatientSearchService --> PatientRepository
+PatientDirectoryService --> PatientRepository
+PatientDirectoryService ..|> PatientDirectory
+PatientDirectoryService ..> PatientSummary : crea
+
+KeycloakIdentityProvider ..|> IdentityProvider
+PatientRepositoryAdapter ..|> PatientRepository
+
+Patient *-- PersonName
+Patient *-- IdentityDocument
+Patient *-- PhoneNumber
+NewUserAccount *-- Email
+NewUserAccount *-- PersonName
+NewUserAccount --> Role
+
+note right of KeycloakIdentityProvider
+  <b>Patrón Adapter</b>: adapta el puerto
+  IdentityProvider a la API de Keycloak.
+end note
+
+legend right
+  + público  ~ de paquete  # protegido  - privado
+  Cursiva: interfaz.  ..▷ implementa  ──> usa  ◆── contiene
+endlegend
 @enduml
