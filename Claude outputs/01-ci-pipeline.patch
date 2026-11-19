@@ -1,0 +1,103 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..093b52b
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,68 @@
++name: CI
++
++# Integración continua: cada PR y cada push a develop compila el proyecto y corre las pruebas
++# automáticas del backend y del frontend. En main lo ejecuta el workflow de despliegue continuo
++# antes de desplegar, por eso aquí no se escucha el push a main.
++on:
++  pull_request:
++    branches: [develop, main]
++  push:
++    branches: [develop]
++  workflow_call:
++
++concurrency:
++  group: ci-${{ github.ref }}
++  cancel-in-progress: true
++
++permissions:
++  contents: read
++
++jobs:
++  backend:
++    name: Backend (Java 21)
++    runs-on: ubuntu-latest
++    defaults:
++      run:
++        working-directory: backend
++    steps:
++      - uses: actions/checkout@v5
++
++      - uses: actions/setup-java@v5
++        with:
++          distribution: temurin
++          java-version: '21'
++          cache: maven
++
++      - name: Compilar y correr las pruebas
++        run: ./mvnw -B verify
++
++      - name: Guardar los reportes de pruebas
++        if: failure()
++        uses: actions/upload-artifact@v4
++        with:
++          name: reportes-backend
++          path: backend/target/surefire-reports
++
++  frontend:
++    name: Frontend (Angular)
++    runs-on: ubuntu-latest
++    defaults:
++      run:
++        working-directory: frontend
++    steps:
++      - uses: actions/checkout@v5
++
++      - uses: actions/setup-node@v5
++        with:
++          node-version: '24'
++          cache: npm
++          cache-dependency-path: frontend/package-lock.json
++
++      - name: Instalar dependencias
++        run: npm ci
++
++      - name: Correr las pruebas
++        run: npx ng test --watch=false
++
++      - name: Compilar para producción
++        run: npx ng build
+diff --git a/README.md b/README.md
+index c72667d..b6e2f2a 100644
+--- a/README.md
++++ b/README.md
+@@ -1,5 +1,7 @@
+ # Piedrazul
+ 
++[![CI](https://github.com/SantiagoS-UC/piedrazul/actions/workflows/ci.yml/badge.svg)](https://github.com/SantiagoS-UC/piedrazul/actions/workflows/ci.yml)
++
+ Sistema de reserva de citas médicas para la clínica Piedrazul. Proyecto del curso Ingeniería de
+ Software III, Universidad del Cauca, 2026.2.
+ 
+@@ -77,6 +79,16 @@ Si se cambia `piedrazul-realm.json`, hay que borrar el volumen para que se vuelv
+ `docker compose down` y luego `docker volume rm piedrazul_keycloak-data` (se pierden los
+ usuarios creados a mano).
+ 
++## Integración continua
++
++El workflow `.github/workflows/ci.yml` corre en GitHub Actions en cada PR y en cada push a `develop`.
++Tiene dos trabajos en paralelo:
++
++- **Backend:** `./mvnw verify` con Java 21 (pruebas unitarias y `ModularityTest`).
++- **Frontend:** `npm ci`, `ng test` y `ng build` de producción.
++
++Los resultados se ven en la pestaña *Actions* del repositorio y en cada PR.
++
+ ## Pruebas
+ 
+ - Backend, desde `backend/`: `./mvnw test`. Incluye `ModularityTest`, que falla si un módulo usa
