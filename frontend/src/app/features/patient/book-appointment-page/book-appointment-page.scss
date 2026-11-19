@@ -1,0 +1,125 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 60rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 2rem;
+  background: var(--pz-color-surface);
+  border-radius: var(--pz-radius-lg);
+  box-shadow: var(--pz-shadow-card);
+}
+
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
+
+h2:focus {
+  outline: none;
+}
+
+header p,
+.muted {
+  color: var(--pz-color-text-muted);
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 0.75rem;
+}
+
+.date-time {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.panel-title {
+  font-size: 1.1rem;
+}
+
+.selected-date {
+  font-weight: 700;
+}
+
+.selected-date::first-letter {
+  text-transform: uppercase;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-top: 0.5rem;
+}
+
+.actions .primary {
+  margin-left: auto;
+}
+
+.actions.end {
+  justify-content: flex-end;
+}
+
+.done {
+  align-items: stretch;
+  text-align: center;
+}
+
+.done-icon {
+  display: inline-flex;
+  align-self: center;
+  padding: 1rem;
+  color: var(--pz-color-success);
+  background: var(--pz-color-success-soft);
+  border-radius: 50%;
+}
+
+.done .lead {
+  font-size: 1.15rem;
+}
+
+.done app-booking-summary {
+  text-align: left;
+}
+
+.done .lead,
+.done h2 {
+  align-self: center;
+}
+
+@media (width < 900px) {
+  .date-time {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width < 600px) {
+  .card {
+    padding: 1.25rem;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+}

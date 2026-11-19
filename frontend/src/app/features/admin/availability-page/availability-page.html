@@ -1,0 +1,41 @@
+<app-page-header
+  heading="Disponibilidad por profesional"
+  description="Define los días, el horario y el tiempo entre citas de cada médico o terapista."
+  [breadcrumbs]="breadcrumbs"
+/>
+
+<section class="card">
+  @if (loadError()) {
+    <app-alert type="error">{{ loadError() }}</app-alert>
+  }
+
+  <app-form-field label="Profesional" fieldId="availability-professional" required
+                  hint="Ordenados alfabéticamente por apellido.">
+    <select appFieldControl id="availability-professional" [value]="selectedId()"
+            describedBy="availability-professional-hint"
+            (change)="select($any($event.target).value)">
+      <option value="">Selecciona un profesional</option>
+      @for (professional of professionals(); track professional.id) {
+        <option [value]="professional.id">
+          {{ lastNameFirst(professional) }} · {{ professional.specialtyName }}
+        </option>
+      }
+    </select>
+  </app-form-field>
+
+  @if (selected(); as professional) {
+    @if (loadingAvailability()) {
+      <p>Cargando la disponibilidad…</p>
+    } @else {
+      <app-availability-form
+        [professionalId]="professional.id"
+        [availability]="availability()"
+        [saving]="saving()"
+        [errorMessage]="errorMessage()"
+        [successMessage]="successMessage()"
+        [serverErrors]="serverErrors()"
+        (saved)="save($event)"
+      />
+    }
+  }
+</section>

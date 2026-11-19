@@ -1,0 +1,23 @@
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+input {
+  max-width: 12rem;
+}
+
+.preview {
+  padding: 1rem 1.25rem;
+  font-weight: 500;
+  background: var(--pz-color-background);
+  border-radius: var(--pz-radius-md);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}

@@ -1,0 +1,101 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <header>
+    <h1>Crear cuenta</h1>
+    <p>Regístrate para agendar tus citas en Piedrazul. Los campos con <span class="required">*</span> son obligatorios.</p>
+  </header>
+
+  @if (errorMessage()) {
+    <app-alert type="error">{{ errorMessage() }}</app-alert>
+  }
+
+  <fieldset>
+    <legend>Datos personales</legend>
+    <div class="grid">
+      <app-form-field label="Primer nombre" fieldId="reg-first-name" required [error]="errorOf('firstName')">
+        <input appFieldControl id="reg-first-name" formControlName="firstName" autocomplete="given-name" required
+               [invalid]="!!errorOf('firstName')" [describedBy]="describedBy('reg-first-name')" />
+      </app-form-field>
+      <app-form-field label="Segundo nombre" fieldId="reg-middle-name" [error]="errorOf('middleName')">
+        <input appFieldControl id="reg-middle-name" formControlName="middleName" autocomplete="additional-name"
+               [invalid]="!!errorOf('middleName')" [describedBy]="describedBy('reg-middle-name')" />
+      </app-form-field>
+      <app-form-field label="Primer apellido" fieldId="reg-first-last-name" required [error]="errorOf('firstLastName')">
+        <input appFieldControl id="reg-first-last-name" formControlName="firstLastName" autocomplete="family-name" required
+               [invalid]="!!errorOf('firstLastName')" [describedBy]="describedBy('reg-first-last-name')" />
+      </app-form-field>
+      <app-form-field label="Segundo apellido" fieldId="reg-second-last-name" [error]="errorOf('secondLastName')">
+        <input appFieldControl id="reg-second-last-name" formControlName="secondLastName"
+               [invalid]="!!errorOf('secondLastName')" [describedBy]="describedBy('reg-second-last-name')" />
+      </app-form-field>
+      <app-form-field label="Fecha de nacimiento" fieldId="reg-birth-date" required [error]="errorOf('birthDate')">
+        <input appFieldControl id="reg-birth-date" type="date" formControlName="birthDate" autocomplete="bday" required
+               [max]="today" [invalid]="!!errorOf('birthDate')" [describedBy]="describedBy('reg-birth-date')" />
+      </app-form-field>
+      <app-form-field label="Género" fieldId="reg-gender" required [error]="errorOf('gender')">
+        <select appFieldControl id="reg-gender" formControlName="gender" required
+                [invalid]="!!errorOf('gender')" [describedBy]="describedBy('reg-gender')">
+          <option value="" disabled>Selecciona una opción</option>
+          @for (gender of genders; track gender.value) {
+            <option [value]="gender.value">{{ gender.label }}</option>
+          }
+        </select>
+      </app-form-field>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Documento de identidad</legend>
+    <div class="grid">
+      <app-form-field label="Tipo de documento" fieldId="reg-document-type" required [error]="errorOf('documentType')">
+        <select appFieldControl id="reg-document-type" formControlName="documentType" required
+                [invalid]="!!errorOf('documentType')" [describedBy]="describedBy('reg-document-type')">
+          @for (type of documentTypes; track type.value) {
+            <option [value]="type.value">{{ type.label }}</option>
+          }
+        </select>
+      </app-form-field>
+      <app-form-field label="Número de documento" fieldId="reg-document-number" required
+                      hint="Sin puntos ni espacios." [error]="errorOf('documentNumber')">
+        <input appFieldControl id="reg-document-number" formControlName="documentNumber" inputmode="text" required
+               [invalid]="!!errorOf('documentNumber')" [describedBy]="describedBy('reg-document-number', true)" />
+      </app-form-field>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Contacto</legend>
+    <div class="grid">
+      <app-form-field label="Celular" fieldId="reg-phone" required hint="10 dígitos, por ejemplo 3001234567."
+                      [error]="errorOf('phone')">
+        <input appFieldControl id="reg-phone" type="tel" formControlName="phone" inputmode="numeric" autocomplete="tel-national" required
+               [invalid]="!!errorOf('phone')" [describedBy]="describedBy('reg-phone', true)" />
+      </app-form-field>
+      <app-form-field label="Correo electrónico" fieldId="reg-email" required hint="Con este correo iniciarás sesión."
+                      [error]="errorOf('email')">
+        <input appFieldControl id="reg-email" type="email" formControlName="email" autocomplete="email" required
+               [invalid]="!!errorOf('email')" [describedBy]="describedBy('reg-email', true)" />
+      </app-form-field>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Contraseña</legend>
+    <div class="grid">
+      <app-form-field label="Contraseña" fieldId="reg-password" required
+                      hint="Mínimo 8 caracteres, con letras y números." [error]="errorOf('password')">
+        <app-password-input inputId="reg-password" formControlName="password" autocomplete="new-password"
+                            [invalid]="!!errorOf('password')" [describedBy]="describedBy('reg-password', true)" />
+      </app-form-field>
+      <app-form-field label="Confirmar contraseña" fieldId="reg-password-confirmation" required
+                      hint="Escríbela de nuevo." [error]="errorOf('passwordConfirmation')">
+        <app-password-input inputId="reg-password-confirmation" formControlName="passwordConfirmation" autocomplete="new-password"
+                            [invalid]="!!errorOf('passwordConfirmation')"
+                            [describedBy]="describedBy('reg-password-confirmation', true)" />
+      </app-form-field>
+    </div>
+  </fieldset>
+
+  <button appButton type="submit" block [loading]="loading()" [disabled]="loading()">
+    {{ loading() ? 'Creando cuenta…' : 'Crear cuenta' }}
+  </button>
+</form>

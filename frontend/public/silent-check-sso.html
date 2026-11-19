@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="es">
+  <body>
+    <!-- keycloak-js abre esta página en un iframe oculto para saber si ya hay una sesión en Keycloak. -->
+    <script>
+      parent.postMessage(location.href, location.origin);
+    </script>
+  </body>
+</html>

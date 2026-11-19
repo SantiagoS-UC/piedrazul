@@ -1,0 +1,57 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (successMessage()) {
+    <app-alert type="success">{{ successMessage() }}</app-alert>
+  }
+  @if (errorMessage()) {
+    <app-alert type="error">{{ errorMessage() }}</app-alert>
+  }
+  @if (!availability()) {
+    <app-alert type="info">Este profesional aún no tiene disponibilidad. Mientras no la configures, no aparecerá al agendar citas.</app-alert>
+  }
+
+  <section>
+    <h2 id="days-title">Días de atención <span class="required" aria-hidden="true">*</span></h2>
+    <app-day-picker
+      formControlName="workingDays"
+      legend="Días de atención"
+      [invalid]="!!errorOf('workingDays')"
+      [describedBy]="describedBy('availability-days')"
+    />
+    <p class="error" id="availability-days-error" aria-live="polite">{{ errorOf('workingDays') }}</p>
+  </section>
+
+  <section>
+    <h2>Franja horaria de atención</h2>
+    <div class="grid">
+      <app-form-field label="Hora de inicio" fieldId="availability-start" required [error]="errorOf('startTime')">
+        <input appFieldControl id="availability-start" type="time" formControlName="startTime" required
+               [invalid]="!!errorOf('startTime')" [describedBy]="describedBy('availability-start')" />
+      </app-form-field>
+      <app-form-field label="Hora de fin" fieldId="availability-end" required [error]="errorOf('endTime')">
+        <input appFieldControl id="availability-end" type="time" formControlName="endTime" required
+               [invalid]="!!errorOf('endTime')" [describedBy]="describedBy('availability-end')" />
+      </app-form-field>
+    </div>
+  </section>
+
+  <section>
+    <h2>Intervalo entre citas</h2>
+    <app-form-field label="Minutos entre una cita y la siguiente" fieldId="availability-slot" required
+                    [hint]="'Entre ' + minSlot + ' y ' + maxSlot + ' minutos.'" [error]="errorOf('slotMinutes')">
+      <input appFieldControl id="availability-slot" type="number" inputmode="numeric" formControlName="slotMinutes" required
+             [min]="minSlot" [max]="maxSlot" [invalid]="!!errorOf('slotMinutes')"
+             [describedBy]="describedBy('availability-slot', true)" />
+    </app-form-field>
+  </section>
+
+  <app-slot-preview [slots]="previewSlots()" />
+
+  <div class="actions">
+    <button appButton variant="secondary" type="button" [disabled]="form.pristine || saving()" (click)="cancel()">
+      Cancelar
+    </button>
+    <button appButton type="submit" [loading]="saving()" [disabled]="saving()">
+      {{ saving() ? 'Guardando…' : 'Guardar disponibilidad' }}
+    </button>
+  </div>
+</form>

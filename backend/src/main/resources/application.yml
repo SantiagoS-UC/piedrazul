@@ -1,0 +1,38 @@
+# Los valores por defecto coinciden con docker-compose.yml, así cada integrante arranca sin
+# configurar nada. En otros entornos se sobrescriben con variables de entorno.
+spring:
+  application:
+    name: piedrazul
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/piedrazul}
+    username: ${DB_USERNAME:piedrazul}
+    password: ${DB_PASSWORD:piedrazul}
+  jpa:
+    # Flyway es el único dueño del esquema; Hibernate solo valida que las entidades coincidan.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Solo se aceptan tokens emitidos por este realm de Keycloak.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/piedrazul}
+  flyway:
+    # Cada módulo versiona sus migraciones en su propia carpeta y rango (identity 1.x,
+    # professionals 2.x, configuration 3.x, appointments 4.x). Como se desarrollan en paralelo,
+    # una migración de menor versión puede llegar después de otra ya aplicada.
+    out-of-order: true
+
+server:
+  # 8081 y no 8080 porque algunos equipos ya tienen servicios del sistema escuchando en 8080.
+  port: ${SERVER_PORT:8081}
+
+piedrazul:
+  # Cuenta de servicio con la que el registro crea a los pacientes en Keycloak.
+  keycloak:
+    url: ${KEYCLOAK_URL:http://localhost:8180}
+    realm: piedrazul
+    client-id: piedrazul-backend
+    # Solo para desarrollo; coincide con keycloak/piedrazul-realm.json.
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:piedrazul-backend-dev-secret}

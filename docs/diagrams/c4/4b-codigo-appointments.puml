@@ -1,0 +1,63 @@
+@startuml c4-4b-codigo-appointments
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ClassBackgroundColor white
+skinparam ClassBorderColor #1168BD
+skinparam ClassFontColor #1168BD
+skinparam ClassBorderThickness 1.3
+skinparam PackageBorderColor #666666
+skinparam PackageBackgroundColor white
+skinparam ArrowColor #444444
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+hide empty members
+hide circle
+set separator none
+
+title Diagrama de clases: exportación e historial de citas\n<size:12><color:#666666>Modelo C4, nivel 4</color></size>
+
+package "application" {
+  class ExportAgendaService {
+    +export(requester, professionalId, date) : ExportedFile
+  }
+  class AgendaQueryService {
+    +agendaOf(requester, professionalId, date) : ProfessionalAgenda
+  }
+  class PatientHistoryQueryService {
+    +historyOf(patientId) : PatientHistory
+  }
+  class Requester <<record>> {
+    +agendaOwner(professionalId) : UUID
+  }
+  interface AgendaExporter {
+    +export(agenda) : ExportedFile
+  }
+}
+package "domain" {
+  interface AppointmentRepository {
+    +findByProfessionalAndDate(id, date) : List<Appointment>
+    +findByPatient(id) : List<Appointment>
+  }
+  class Appointment {
+    +overlaps(date, start, minutes) : boolean
+    +isUpcomingAt(now) : boolean
+  }
+}
+package "infrastructure" {
+  class CsvAgendaExporter {
+    +export(agenda) : ExportedFile
+  }
+}
+
+ExportAgendaService ..> AgendaQueryService
+ExportAgendaService ..> AgendaExporter
+AgendaQueryService ..> Requester
+AgendaQueryService .down.> AppointmentRepository
+PatientHistoryQueryService .down.> AppointmentRepository
+AppointmentRepository ..> Appointment
+CsvAgendaExporter .up.|> AgendaExporter
+Requester -[hidden]down- AppointmentRepository
+@enduml

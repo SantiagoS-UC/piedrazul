@@ -1,0 +1,42 @@
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  @if (successMessage()) {
+    <app-alert type="success">{{ successMessage() }}</app-alert>
+  }
+  @if (errorMessage()) {
+    <app-alert type="error">{{ errorMessage() }}</app-alert>
+  }
+
+  <app-form-field
+    label="Ventana de tiempo para agendar citas (semanas)"
+    fieldId="window-weeks"
+    required
+    [hint]="'Entre ' + window().minWeeks + ' y ' + window().maxWeeks + ' semanas hacia adelante.'"
+    [error]="error()"
+  >
+    <input
+      appFieldControl
+      id="window-weeks"
+      type="number"
+      inputmode="numeric"
+      formControlName="weeks"
+      required
+      [min]="window().minWeeks"
+      [max]="window().maxWeeks"
+      [invalid]="!!error()"
+      [describedBy]="describedBy('window-weeks', true)"
+    />
+  </app-form-field>
+
+  @if (preview()) {
+    <p class="preview">{{ preview() }}</p>
+  }
+
+  <div class="actions">
+    <button appButton variant="secondary" type="button" [disabled]="form.pristine || saving()" (click)="cancel()">
+      Cancelar
+    </button>
+    <button appButton type="submit" [loading]="saving()" [disabled]="saving()">
+      {{ saving() ? 'Guardando…' : 'Guardar configuración' }}
+    </button>
+  </div>
+</form>

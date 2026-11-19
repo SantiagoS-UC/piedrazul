@@ -1,0 +1,52 @@
+@startuml uml-1-escenarios
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam actorStyle awesome
+skinparam ActorBackgroundColor white
+skinparam ActorBorderColor #2F7D1A
+skinparam ActorFontColor #2F7D1A
+skinparam UsecaseBackgroundColor white
+skinparam UsecaseBorderColor #1168BD
+skinparam UsecaseFontColor #1168BD
+skinparam UsecaseBorderThickness 1.5
+skinparam RectangleBorderColor #1168BD
+skinparam RectangleFontColor #1168BD
+left to right direction
+title Vista de escenarios: casos de uso\n<size:12><color:#666666>Modelo 4+1</color></size>
+
+actor "Paciente" as paciente
+actor "Agendador" as agendador
+actor "Profesional" as profesional
+actor "Administrador" as administrador
+
+rectangle "Sistema de citas Piedrazul" {
+  usecase "Registrarse" as UC1
+  usecase "Agendar cita" as UC2
+  usecase "Listar citas" as UC3
+  usecase "Exportar citas" as UC4
+  usecase "Consultar historial\nde un paciente" as UC5
+  usecase "Configurar el\nagendamiento" as UC6
+  usecase "Iniciar sesión" as UC7
+}
+
+paciente --> UC1
+paciente --> UC2
+agendador --> UC3
+agendador --> UC4
+agendador --> UC5
+profesional --> UC4
+profesional --> UC5
+administrador --> UC6
+
+UC2 ..> UC7 : <<include>>
+UC3 ..> UC7 : <<include>>
+UC4 ..> UC7 : <<include>>
+UC5 ..> UC7 : <<include>>
+UC6 ..> UC7 : <<include>>
+@enduml
