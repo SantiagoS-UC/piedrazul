@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { authInterceptor } from './core/auth/auth-interceptor';
+import { apiUrlInterceptor } from './core/http/api-url-interceptor';
 import { AuthSession } from './core/auth/auth-session';
 import { routes } from './app.routes';
 
@@ -22,7 +23,7 @@ export const appConfig: ApplicationConfig = {
     // Las rutas protegidas necesitan saber si hay sesión antes de la primera navegación.
     provideAppInitializer(() => inject(AuthSession).init()),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor, apiUrlInterceptor])),
     { provide: LOCALE_ID, useValue: 'es-CO' },
   ],
 };

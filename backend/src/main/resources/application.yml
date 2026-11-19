@@ -7,6 +7,9 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/piedrazul}
     username: ${DB_USERNAME:piedrazul}
     password: ${DB_PASSWORD:piedrazul}
+    hikari:
+      # El plan gratuito de Neon admite pocas conexiones simultáneas.
+      maximum-pool-size: ${DB_POOL_SIZE:5}
   jpa:
     # Flyway es el único dueño del esquema; Hibernate solo valida que las entidades coincidan.
     hibernate:
@@ -26,13 +29,18 @@ spring:
 
 server:
   # 8081 y no 8080 porque algunos equipos ya tienen servicios del sistema escuchando en 8080.
-  port: ${SERVER_PORT:8081}
+  # En Render el puerto lo asigna la plataforma en la variable PORT.
+  port: ${PORT:${SERVER_PORT:8081}}
 
 piedrazul:
   # Cuenta de servicio con la que el registro crea a los pacientes en Keycloak.
   keycloak:
     url: ${KEYCLOAK_URL:http://localhost:8180}
-    realm: piedrazul
+    realm: ${KEYCLOAK_REALM:piedrazul}
     client-id: piedrazul-backend
     # Solo para desarrollo; coincide con keycloak/piedrazul-realm.json.
     client-secret: ${KEYCLOAK_CLIENT_SECRET:piedrazul-backend-dev-secret}
+  # Orígenes desde los que el navegador puede llamar a la API, separados por coma. En local no hace
+  # falta porque el servidor de Angular reenvía /api; en la nube el frontend vive en otro dominio.
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
