@@ -15,6 +15,21 @@ class AppointmentTest {
     private static final LocalDate DATE = LocalDate.of(2026, 9, 28);
 
     @Test
+    @DisplayName("Al reagendarla conserva su id, su paciente y su fecha de creación")
+    void reschedulesKeepingIdentity() {
+        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
+
+        Appointment moved = appointment.rescheduleTo(DATE.plusDays(2), LocalTime.of(10, 0), 20);
+
+        assertThat(moved.id()).isEqualTo(appointment.id());
+        assertThat(moved.patientId()).isEqualTo(appointment.patientId());
+        assertThat(moved.createdAt()).isEqualTo(appointment.createdAt());
+        assertThat(moved.startsAt(DATE.plusDays(2), LocalTime.of(10, 0))).isTrue();
+        assertThat(moved.endTime()).isEqualTo(LocalTime.of(10, 20));
+        assertThat(appointment.startsAt(DATE, LocalTime.of(8, 0))).isTrue();
+    }
+
+    @Test
     @DisplayName("Registra la cita con su duración y calcula la hora de fin")
     void booksAppointment() {
         Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);

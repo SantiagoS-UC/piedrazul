@@ -23,11 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * HU-03: agendamiento de citas por el propio paciente. Las consultas de profesionales, calendario y
- * franjas también las usa el agendador cuando registra la cita de un paciente.
+ * franjas también las usan el agendador, cuando registra la cita de un paciente, y el profesional,
+ * cuando reagenda una cita.
  */
 @RestController
 @RequestMapping("/api/appointments")
-@PreAuthorize("hasAnyRole('PATIENT', 'SCHEDULER')")
+@PreAuthorize("hasAnyRole('PATIENT', 'SCHEDULER', 'PROFESSIONAL')")
 public class BookingController {
 
     private final BookingQueryService bookingQueryService;
