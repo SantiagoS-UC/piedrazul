@@ -134,3 +134,25 @@ Content-Type: application/json
   "date": "2026-10-05",
   "time": "11:00"
 }
+
+### RF6: citas de la paciente que inició sesión, incluidas las canceladas
+GET http://localhost:8081/api/appointments/mine
+Authorization: Bearer {{patientToken}}
+
+### RF6: cancelar una cita propia. Cambia el id por uno de la lista anterior con "cancellable": true
+POST http://localhost:8081/api/appointments/mine/00000000-0000-0000-0000-000000000000/cancel
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "reason": "Tengo un viaje de trabajo esa semana"
+}
+
+### Sin motivo: responde 400 con el campo reason
+POST http://localhost:8081/api/appointments/mine/00000000-0000-0000-0000-000000000000/cancel
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "reason": ""
+}

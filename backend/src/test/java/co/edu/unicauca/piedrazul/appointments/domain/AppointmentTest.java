@@ -3,6 +3,7 @@ package co.edu.unicauca.piedrazul.appointments.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -94,6 +95,63 @@ class AppointmentTest {
 
         assertThat(appointment.isUpcomingAt(DATE.atTime(8, 0))).isFalse();
         assertThat(appointment.isUpcomingAt(DATE.plusDays(1).atTime(7, 0))).isFalse();
+    }
+
+    @Test
+    @DisplayName("Se cancela con el motivo sin espacios sobrantes y deja de estar vigente")
+    void cancelsWithReason() {
+        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
+        Instant now = Instant.parse("2026-09-26T13:00:00Z");
+
+        Appointment cancelled = appointment.cancel("  Tengo un viaje de trabajo  ", now, DATE.minusDays(2));
+
+        assertThat(cancelled.isCancelled()).isTrue();
+        assertThat(cancelled.status()).isEqualTo(AppointmentStatus.CANCELLED);
+        assertThat(cancelled.cancellation()).contains(new Cancellation("Tengo un viaje de trabajo", now));
+        assertThat(cancelled.id()).isEqualTo(appointment.id());
+        assertThat(appointment.isCancelled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Se puede cancelar hasta dos días antes, no después")
+    void requiresTwoDaysInAdvance() {
+        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
+
+        assertThat(appointment.canBeCancelledOn(DATE.minusDays(3))).isTrue();
+        assertThat(appointment.canBeCancelledOn(DATE.minusDays(2))).isTrue();
+        assertThat(appointment.canBeCancelledOn(DATE.minusDays(1))).isFalse();
+        assertThat(appointment.canBeCancelledOn(DATE)).isFalse();
+        assertThatThrownBy(() -> appointment.cancel("Tengo un viaje de trabajo", Instant.now(), DATE.minusDays(1)))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("mínimo 2 días de anticipación");
+    }
+
+    @Test
+    @DisplayName("Exige un motivo de al menos 10 caracteres")
+    void requiresReason() {
+        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
+        LocalDate today = DATE.minusDays(5);
+
+        assertThatThrownBy(() -> appointment.cancel("   ", Instant.now(), today))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessage("Escribe el motivo de la cancelación.");
+        assertThatThrownBy(() -> appointment.cancel("No puedo", Instant.now(), today))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessageContaining("al menos 10 caracteres");
+    }
+
+    @Test
+    @DisplayName("Una cita cancelada no se vuelve a cancelar ni se puede reagendar")
+    void cancelledIsFinal() {
+        Appointment cancelled = appointmentAt(LocalTime.of(8, 0), 30)
+                .cancel("Tengo un viaje de trabajo", Instant.now(), DATE.minusDays(5));
+
+        assertThat(cancelled.canBeCancelledOn(DATE.minusDays(5))).isFalse();
+        assertThatThrownBy(() -> cancelled.cancel("Otra vez el mismo motivo", Instant.now(), DATE.minusDays(5)))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessage("Esta cita ya estaba cancelada.");
+        assertThatThrownBy(() -> cancelled.rescheduleTo(DATE.plusDays(1), LocalTime.of(9, 0), 30))
+                .isInstanceOf(BusinessRuleViolationException.class);
     }
 
     private static Appointment appointmentAt(LocalTime start, int minutes) {

@@ -2,6 +2,7 @@ package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
 
 import co.edu.unicauca.piedrazul.appointments.application.PatientHistory;
 import co.edu.unicauca.piedrazul.appointments.application.PatientHistoryEntry;
+import co.edu.unicauca.piedrazul.appointments.domain.Cancellation;
 import co.edu.unicauca.piedrazul.identity.PatientSummary;
 import co.edu.unicauca.piedrazul.professionals.ProfessionalSummary;
 import java.time.LocalDate;
@@ -13,6 +14,7 @@ public record PatientHistoryResponse(
         int total,
         long upcoming,
         long past,
+        long cancelled,
         List<HistoryAppointmentResponse> appointments) {
 
     public record HistoryPatientResponse(UUID id, String givenNames, String lastNames, String documentType,
@@ -25,11 +27,12 @@ public record PatientHistoryResponse(
     }
 
     /**
-     * @param time   hora de inicio en formato HH:mm
-     * @param status UPCOMING o PAST
+     * @param time               hora de inicio en formato HH:mm
+     * @param status             UPCOMING, PAST o CANCELLED
+     * @param cancellationReason motivo que dejó el paciente; {@code null} si la cita no se canceló
      */
     public record HistoryAppointmentResponse(UUID id, LocalDate date, String time, int durationMinutes,
-            String professionalName, String specialtyName, String status) {
+            String professionalName, String specialtyName, String status, String cancellationReason) {
     }
 
     static PatientHistoryResponse from(PatientHistory history) {
@@ -37,7 +40,7 @@ public record PatientHistoryResponse(
                 .map(PatientHistoryResponse::toResponse)
                 .toList();
         return new PatientHistoryResponse(HistoryPatientResponse.from(history.patient()), history.total(),
-                history.upcoming(), history.past(), appointments);
+                history.upcoming(), history.past(), history.cancelled(), appointments);
     }
 
     private static HistoryAppointmentResponse toResponse(PatientHistoryEntry entry) {
@@ -45,6 +48,17 @@ public record PatientHistoryResponse(
         String specialtyName = entry.professional().map(ProfessionalSummary::specialtyName).orElse("");
         return new HistoryAppointmentResponse(entry.appointment().id(), entry.appointment().date(),
                 TimeFormat.format(entry.appointment().startTime()), entry.appointment().durationMinutes(),
-                professionalName, specialtyName, entry.upcoming() ? "UPCOMING" : "PAST");
+                professionalName, specialtyName, statusOf(entry), cancellationReasonOf(entry));
+    }
+
+    static String statusOf(PatientHistoryEntry entry) {
+        if (entry.appointment().isCancelled()) {
+            return "CANCELLED";
+        }
+        return entry.upcoming() ? "UPCOMING" : "PAST";
+    }
+
+    static String cancellationReasonOf(PatientHistoryEntry entry) {
+        return entry.appointment().cancellation().map(Cancellation::reason).orElse(null);
     }
 }

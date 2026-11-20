@@ -71,6 +71,26 @@ class PatientHistoryQueryServiceTest {
     }
 
     @Test
+    @DisplayName("Cuenta aparte las canceladas y marca cuáles se pueden cancelar todavía")
+    void separatesCancelledAppointments() {
+        Appointment inThreeDays = appointmentWith(LAURA.id(), TODAY.plusDays(3), LocalTime.of(8, 0));
+        Appointment tomorrow = appointmentWith(LAURA.id(), TODAY.plusDays(1), LocalTime.of(8, 0));
+        Appointment cancelled = appointmentWith(LAURA.id(), TODAY.plusDays(4), LocalTime.of(9, 0))
+                .cancel("Tengo un viaje de trabajo", CLOCK.instant(), TODAY);
+        when(patientDirectory.findByIds(List.of(ANA.id()))).thenReturn(List.of(ANA));
+        when(appointmentRepository.findByPatient(ANA.id())).thenReturn(List.of(cancelled, inThreeDays, tomorrow));
+        when(professionalCatalog.findAll()).thenReturn(List.of(LAURA));
+
+        PatientHistory history = service.historyOf(ANA.id());
+
+        assertThat(history.entries()).extracting(PatientHistoryEntry::upcoming).containsExactly(false, true, true);
+        assertThat(history.entries()).extracting(PatientHistoryEntry::cancellable).containsExactly(false, true, false);
+        assertThat(history.upcoming()).isEqualTo(2);
+        assertThat(history.cancelled()).isEqualTo(1);
+        assertThat(history.past()).isZero();
+    }
+
+    @Test
     @DisplayName("Devuelve un historial vacío si el paciente aún no tiene citas")
     void emptyHistory() {
         when(patientDirectory.findByIds(List.of(ANA.id()))).thenReturn(List.of(ANA));

@@ -148,6 +148,18 @@ class RescheduleAppointmentServiceTest {
     }
 
     @Test
+    @DisplayName("No reagenda una cita cancelada")
+    void rejectsCancelledAppointment() {
+        Appointment cancelled = appointment.cancel("Tengo un viaje de trabajo", CREATED_AT, TODAY);
+        when(appointmentRepository.findById(cancelled.id())).thenReturn(Optional.of(cancelled));
+
+        assertThatThrownBy(() -> service.reschedule(laura(), command(NEXT_MONDAY, ELEVEN_AM)))
+                .isInstanceOf(BusinessRuleViolationException.class)
+                .hasMessage("Esta cita fue cancelada y ya no se puede reagendar.");
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Pide una fecha u hora distinta a la actual")
     void rejectsSameSlot() {
         assertRejected(command(NEXT_WEDNESDAY, TEN_AM), "La cita ya está en ese horario. Elige otra fecha u hora.");
