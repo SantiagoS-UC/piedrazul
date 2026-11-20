@@ -10,7 +10,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { finalize } from 'rxjs';
+import { finalize, Observable } from 'rxjs';
+import { AuthSession } from '../../../core/auth/auth-session';
 import { toApiError } from '../../../core/http/api-error';
 import {
   lastNameFirst,
@@ -27,6 +28,8 @@ import { PageHeader } from '../../../shared/ui/molecules/page-header/page-header
 import { SlotOption, SlotPicker } from '../../../shared/ui/molecules/slot-picker/slot-picker';
 import { StepIndicator } from '../../../shared/ui/molecules/step-indicator/step-indicator';
 import { MonthCalendar } from '../../../shared/ui/organisms/month-calendar/month-calendar';
+import { PatientPicker } from '../../staff/organisms/patient-picker/patient-picker';
+import { PatientMatch } from '../../staff/patient-history-api';
 import { BookableProfessional, BookedAppointment, BookingApi, BookingCalendar, worksOn } from '../booking-api';
 import { BookingSummary } from '../organisms/booking-summary/booking-summary';
 
@@ -42,10 +45,24 @@ const SPECIALTY_DETAIL: Record<SpecialtyCode, string> = {
 /**
  * HU-03: el paciente agenda su cita en cuatro pasos. Volver a un paso anterior conserva lo elegido;
  * cambiar una elección borra solo las que dependen de ella.
+ *
+ * El agendador usa la misma página para registrar la cita de un paciente que llama o escribe: antes
+ * de los pasos elige al paciente.
  */
 @Component({
   selector: 'app-book-appointment-page',
-  imports: [Alert, Button, BookingSummary, ChoiceButton, Icon, MonthCalendar, PageHeader, SlotPicker, StepIndicator],
+  imports: [
+    Alert,
+    Button,
+    BookingSummary,
+    ChoiceButton,
+    Icon,
+    MonthCalendar,
+    PageHeader,
+    PatientPicker,
+    SlotPicker,
+    StepIndicator,
+  ],
   templateUrl: './book-appointment-page.html',
   styleUrl: './book-appointment-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,6 +72,7 @@ export class BookAppointmentPage {
   private readonly injector = inject(Injector);
   private readonly stepHeading = viewChild<ElementRef<HTMLElement>>('stepHeading');
 
+  protected readonly forStaff = inject(AuthSession).role() === 'SCHEDULER';
   protected readonly steps = STEPS;
   protected readonly specialtyDetail = SPECIALTY_DETAIL;
   protected readonly lastNameFirst = lastNameFirst;
@@ -62,6 +80,8 @@ export class BookAppointmentPage {
   protected readonly weekdayDate = (iso: string) => formatWeekdayDate(parseIsoDate(iso));
 
   protected readonly step = signal(0);
+  protected readonly patient = signal<PatientMatch | null>(null);
+  protected readonly patientError = signal<string | null>(null);
   protected readonly specialties = signal<Specialty[]>([]);
   protected readonly specialty = signal<Specialty | null>(null);
   protected readonly professionals = signal<BookableProfessional[]>([]);
@@ -88,6 +108,10 @@ export class BookAppointmentPage {
     const date = this.date();
     return date ? this.weekdayDate(date) : '';
   });
+  protected readonly patientName = computed(() => {
+    const patient = this.patient();
+    return patient ? `${patient.givenNames} ${patient.lastNames}` : null;
+  });
   protected readonly noFreeSlots = computed(
     () => !this.loadingSlots() && this.slots().length > 0 && this.slots().every((slot) => !slot.available),
   );
@@ -99,6 +123,12 @@ export class BookAppointmentPage {
         next: (specialties) => this.specialties.set(specialties),
         error: (error: unknown) => this.errorMessage.set(toApiError(error).message),
       });
+  }
+
+  protected choosePatient(patient: PatientMatch | null): void {
+    this.patient.set(patient);
+    this.patientError.set(null);
+    this.errorMessage.set(null);
   }
 
   protected chooseSpecialty(specialty: Specialty): void {
@@ -135,6 +165,10 @@ export class BookAppointmentPage {
   }
 
   protected next(): void {
+    if (this.forStaff && !this.patient()) {
+      this.patientError.set('Elige el paciente antes de continuar.');
+      return;
+    }
     const missing = this.missingChoice();
     if (missing) {
       this.stepError.set(missing);
@@ -158,13 +192,16 @@ export class BookAppointmentPage {
     const professional = this.professional();
     const date = this.date();
     const time = this.time();
-    if (!professional || !date || !time) {
+    const patient = this.patient();
+    if (!professional || !date || !time || (this.forStaff && !patient)) {
       return;
     }
+    const request: Observable<BookedAppointment> = patient
+      ? this.bookingApi.bookForPatient(patient.id, professional.id, date, time)
+      : this.bookingApi.book(professional.id, date, time);
     this.booking.set(true);
     this.errorMessage.set(null);
-    this.bookingApi
-      .book(professional.id, date, time)
+    request
       .pipe(finalize(() => this.booking.set(false)))
       .subscribe({
         next: (booked) => {
@@ -177,6 +214,7 @@ export class BookAppointmentPage {
 
   protected startOver(): void {
     this.booked.set(null);
+    this.patient.set(null);
     this.specialty.set(null);
     this.professionals.set([]);
     this.chooseProfessional(null);

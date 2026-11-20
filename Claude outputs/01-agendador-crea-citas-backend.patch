@@ -1,0 +1,331 @@
+diff --git a/backend/http/appointments.http b/backend/http/appointments.http
+index 9a27996..c1c0486 100644
+--- a/backend/http/appointments.http
++++ b/backend/http/appointments.http
+@@ -50,6 +50,30 @@ grant_type=password&client_id=piedrazul-dev-tools&username=agendador@gmail.com&p
+ 
+ > {% client.global.set("schedulerToken", response.body.access_token); %}
+ 
++### El agendador agenda una cita a nombre de Ana María Gómez. Cambia la fecha por un día que Laura atienda
++POST http://localhost:8081/api/appointments/for-patient
++Authorization: Bearer {{schedulerToken}}
++Content-Type: application/json
++
++{
++  "patientId": "00000000-0000-0000-0000-000000000101",
++  "professionalId": "20000000-0000-0000-0000-000000000001",
++  "date": "2026-09-30",
++  "time": "09:00"
++}
++
++### Un paciente no puede agendar a nombre de otro: responde 403
++POST http://localhost:8081/api/appointments/for-patient
++Authorization: Bearer {{patientToken}}
++Content-Type: application/json
++
++{
++  "patientId": "00000000-0000-0000-0000-000000000102",
++  "professionalId": "20000000-0000-0000-0000-000000000001",
++  "date": "2026-09-30",
++  "time": "09:30"
++}
++
+ ### Citas de Laura Martínez en una fecha, ordenadas por hora
+ GET http://localhost:8081/api/appointments/agenda?professionalId=20000000-0000-0000-0000-000000000001&date=2026-09-29
+ Authorization: Bearer {{schedulerToken}}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/BookForPatientService.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/BookForPatientService.java
+new file mode 100644
+index 0000000..fd315a7
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/BookForPatientService.java
+@@ -0,0 +1,36 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import co.edu.unicauca.piedrazul.appointments.domain.PatientAlreadyBookedException;
++import co.edu.unicauca.piedrazul.identity.PatientDirectory;
++import co.edu.unicauca.piedrazul.identity.PatientSummary;
++import co.edu.unicauca.piedrazul.shared.domain.ResourceNotFoundException;
++import java.util.List;
++import org.springframework.stereotype.Service;
++
++/**
++ * El agendador registra la cita de un paciente que la pide por teléfono o WhatsApp. Las reglas son
++ * las mismas que cuando el paciente agenda por su cuenta, por eso se delega en BookAppointmentService.
++ */
++@Service
++public class BookForPatientService {
++
++    private final PatientDirectory patientDirectory;
++    private final BookAppointmentService bookAppointmentService;
++
++    BookForPatientService(PatientDirectory patientDirectory, BookAppointmentService bookAppointmentService) {
++        this.patientDirectory = patientDirectory;
++        this.bookAppointmentService = bookAppointmentService;
++    }
++
++    public StaffBookedAppointment book(BookAppointmentCommand command) {
++        PatientSummary patient = patientDirectory.findByIds(List.of(command.patientId())).stream()
++                .findFirst()
++                .orElseThrow(() -> new ResourceNotFoundException("No encontramos al paciente seleccionado."));
++        try {
++            return new StaffBookedAppointment(bookAppointmentService.book(command), patient);
++        } catch (PatientAlreadyBookedException ex) {
++            // El mensaje original le habla al paciente; aquí lo lee el agendador.
++            throw PatientAlreadyBookedException.forStaff();
++        }
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/StaffBookedAppointment.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/StaffBookedAppointment.java
+new file mode 100644
+index 0000000..bd13a7e
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/StaffBookedAppointment.java
+@@ -0,0 +1,9 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import co.edu.unicauca.piedrazul.identity.PatientSummary;
++
++/**
++ * Cita registrada por el agendador, con el paciente para mostrar a nombre de quién quedó.
++ */
++public record StaffBookedAppointment(BookedAppointment booked, PatientSummary patient) {
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/PatientAlreadyBookedException.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/PatientAlreadyBookedException.java
+index 6e51ed1..ae73872 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/PatientAlreadyBookedException.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/PatientAlreadyBookedException.java
+@@ -5,6 +5,17 @@ import co.edu.unicauca.piedrazul.shared.domain.DuplicateResourceException;
+ public class PatientAlreadyBookedException extends DuplicateResourceException {
+ 
+     public PatientAlreadyBookedException() {
+-        super("time", "Ya tienes una cita a esa hora. Elige otro horario.");
++        this("Ya tienes una cita a esa hora. Elige otro horario.");
++    }
++
++    private PatientAlreadyBookedException(String message) {
++        super("time", message);
++    }
++
++    /**
++     * El mismo error, redactado para el agendador o el profesional que maneja la cita del paciente.
++     */
++    public static PatientAlreadyBookedException forStaff() {
++        return new PatientAlreadyBookedException("El paciente ya tiene una cita a esa hora. Elige otro horario.");
+     }
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/BookingController.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/BookingController.java
+index 9e7591f..0b2bd08 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/BookingController.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/BookingController.java
+@@ -22,11 +22,12 @@ import org.springframework.web.bind.annotation.ResponseStatus;
+ import org.springframework.web.bind.annotation.RestController;
+ 
+ /**
+- * HU-03: agendamiento de citas por el propio paciente.
++ * HU-03: agendamiento de citas por el propio paciente. Las consultas de profesionales, calendario y
++ * franjas también las usa el agendador cuando registra la cita de un paciente.
+  */
+ @RestController
+ @RequestMapping("/api/appointments")
+-@PreAuthorize("hasRole('PATIENT')")
++@PreAuthorize("hasAnyRole('PATIENT', 'SCHEDULER')")
+ public class BookingController {
+ 
+     private final BookingQueryService bookingQueryService;
+@@ -59,6 +60,7 @@ public class BookingController {
+     // El paciente sale del token y no de la petición: nadie puede agendar a nombre de otro.
+     @PostMapping
+     @ResponseStatus(HttpStatus.CREATED)
++    @PreAuthorize("hasRole('PATIENT')")
+     public BookedAppointmentResponse book(@AuthenticationPrincipal Jwt jwt,
+             @Valid @RequestBody BookAppointmentRequest request) {
+         BookAppointmentCommand command = new BookAppointmentCommand(UUID.fromString(jwt.getSubject()),
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookAppointmentRequest.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookAppointmentRequest.java
+new file mode 100644
+index 0000000..2faec12
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookAppointmentRequest.java
+@@ -0,0 +1,13 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import jakarta.validation.constraints.NotNull;
++import java.time.LocalDate;
++import java.time.LocalTime;
++import java.util.UUID;
++
++public record StaffBookAppointmentRequest(
++        @NotNull(message = "Elige un paciente.") UUID patientId,
++        @NotNull(message = "Elige un profesional.") UUID professionalId,
++        @NotNull(message = "Elige una fecha.") LocalDate date,
++        @NotNull(message = "Elige una hora.") LocalTime time) {
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookedAppointmentResponse.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookedAppointmentResponse.java
+new file mode 100644
+index 0000000..c4fe968
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookedAppointmentResponse.java
+@@ -0,0 +1,27 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import co.edu.unicauca.piedrazul.appointments.application.StaffBookedAppointment;
++import java.time.LocalDate;
++import java.util.UUID;
++
++/**
++ * @param patientName     nombres y apellidos del paciente
++ * @param patientDocument tipo y número, por ejemplo "CC 1061000001"
++ */
++public record StaffBookedAppointmentResponse(
++        UUID id,
++        LocalDate date,
++        String time,
++        int durationMinutes,
++        BookableProfessionalResponse professional,
++        String patientName,
++        String patientDocument) {
++
++    static StaffBookedAppointmentResponse from(StaffBookedAppointment staffBooked) {
++        BookedAppointmentResponse booked = BookedAppointmentResponse.from(staffBooked.booked());
++        return new StaffBookedAppointmentResponse(booked.id(), booked.date(), booked.time(), booked.durationMinutes(),
++                booked.professional(),
++                staffBooked.patient().givenNames() + " " + staffBooked.patient().lastNames(),
++                staffBooked.patient().documentType() + " " + staffBooked.patient().documentNumber());
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookingController.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookingController.java
+new file mode 100644
+index 0000000..fb68fd2
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/StaffBookingController.java
+@@ -0,0 +1,36 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import co.edu.unicauca.piedrazul.appointments.application.BookAppointmentCommand;
++import co.edu.unicauca.piedrazul.appointments.application.BookForPatientService;
++import jakarta.validation.Valid;
++import org.springframework.http.HttpStatus;
++import org.springframework.security.access.prepost.PreAuthorize;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.ResponseStatus;
++import org.springframework.web.bind.annotation.RestController;
++
++/**
++ * El agendador crea la cita a nombre de un paciente registrado. Para elegir profesional, fecha y
++ * hora usa las mismas consultas de BookingController.
++ */
++@RestController
++@RequestMapping("/api/appointments/for-patient")
++@PreAuthorize("hasRole('SCHEDULER')")
++public class StaffBookingController {
++
++    private final BookForPatientService bookForPatientService;
++
++    public StaffBookingController(BookForPatientService bookForPatientService) {
++        this.bookForPatientService = bookForPatientService;
++    }
++
++    @PostMapping
++    @ResponseStatus(HttpStatus.CREATED)
++    public StaffBookedAppointmentResponse book(@Valid @RequestBody StaffBookAppointmentRequest request) {
++        BookAppointmentCommand command = new BookAppointmentCommand(request.patientId(), request.professionalId(),
++                request.date(), request.time());
++        return StaffBookedAppointmentResponse.from(bookForPatientService.book(command));
++    }
++}
+diff --git a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/BookForPatientServiceTest.java b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/BookForPatientServiceTest.java
+new file mode 100644
+index 0000000..b967851
+--- /dev/null
++++ b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/BookForPatientServiceTest.java
+@@ -0,0 +1,89 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.LAURA;
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.NEXT_WEDNESDAY;
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
++import co.edu.unicauca.piedrazul.appointments.domain.PatientAlreadyBookedException;
++import co.edu.unicauca.piedrazul.identity.PatientDirectory;
++import co.edu.unicauca.piedrazul.identity.PatientSummary;
++import co.edu.unicauca.piedrazul.shared.domain.ResourceNotFoundException;
++import java.time.Instant;
++import java.time.LocalTime;
++import java.util.List;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++@ExtendWith(MockitoExtension.class)
++class BookForPatientServiceTest {
++
++    private static final PatientSummary ANA = new PatientSummary(UUID.randomUUID(), "Ana", "María", "Gómez", "Ruiz",
++            "CC", "1061000001", "3001234567");
++    private static final LocalTime TEN_AM = LocalTime.of(10, 0);
++
++    @Mock
++    private PatientDirectory patientDirectory;
++    @Mock
++    private BookAppointmentService bookAppointmentService;
++
++    private BookForPatientService service;
++
++    @BeforeEach
++    void setUp() {
++        service = new BookForPatientService(patientDirectory, bookAppointmentService);
++    }
++
++    @Test
++    @DisplayName("Agenda la cita a nombre del paciente elegido por el agendador")
++    void booksForPatient() {
++        BookAppointmentCommand command = command(ANA.id());
++        BookedAppointment booked = new BookedAppointment(Appointment.book(UUID.randomUUID(), ANA.id(), LAURA.id(),
++                NEXT_WEDNESDAY, TEN_AM, 30, Instant.parse("2026-09-28T14:10:00Z")), LAURA);
++        when(patientDirectory.findByIds(List.of(ANA.id()))).thenReturn(List.of(ANA));
++        when(bookAppointmentService.book(command)).thenReturn(booked);
++
++        StaffBookedAppointment result = service.book(command);
++
++        assertThat(result.booked()).isSameAs(booked);
++        assertThat(result.patient()).isEqualTo(ANA);
++    }
++
++    @Test
++    @DisplayName("No agenda si el paciente no está registrado")
++    void rejectsUnknownPatient() {
++        UUID unknown = UUID.randomUUID();
++        when(patientDirectory.findByIds(List.of(unknown))).thenReturn(List.of());
++
++        assertThatThrownBy(() -> service.book(command(unknown)))
++                .isInstanceOf(ResourceNotFoundException.class)
++                .hasMessage("No encontramos al paciente seleccionado.");
++        verify(bookAppointmentService, never()).book(any());
++    }
++
++    @Test
++    @DisplayName("Si el paciente ya tiene cita a esa hora, el mensaje le habla al agendador")
++    void explainsDoubleBookingToStaff() {
++        BookAppointmentCommand command = command(ANA.id());
++        when(patientDirectory.findByIds(List.of(ANA.id()))).thenReturn(List.of(ANA));
++        when(bookAppointmentService.book(command)).thenThrow(new PatientAlreadyBookedException());
++
++        assertThatThrownBy(() -> service.book(command))
++                .isInstanceOf(PatientAlreadyBookedException.class)
++                .hasMessage("El paciente ya tiene una cita a esa hora. Elige otro horario.");
++    }
++
++    private static BookAppointmentCommand command(UUID patientId) {
++        return new BookAppointmentCommand(patientId, LAURA.id(), NEXT_WEDNESDAY, TEN_AM);
++    }
++}

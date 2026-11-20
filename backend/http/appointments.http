@@ -50,6 +50,30 @@ grant_type=password&client_id=piedrazul-dev-tools&username=agendador@gmail.com&p
 
 > {% client.global.set("schedulerToken", response.body.access_token); %}
 
+### El agendador agenda una cita a nombre de Ana María Gómez. Cambia la fecha por un día que Laura atienda
+POST http://localhost:8081/api/appointments/for-patient
+Authorization: Bearer {{schedulerToken}}
+Content-Type: application/json
+
+{
+  "patientId": "00000000-0000-0000-0000-000000000101",
+  "professionalId": "20000000-0000-0000-0000-000000000001",
+  "date": "2026-09-30",
+  "time": "09:00"
+}
+
+### Un paciente no puede agendar a nombre de otro: responde 403
+POST http://localhost:8081/api/appointments/for-patient
+Authorization: Bearer {{patientToken}}
+Content-Type: application/json
+
+{
+  "patientId": "00000000-0000-0000-0000-000000000102",
+  "professionalId": "20000000-0000-0000-0000-000000000001",
+  "date": "2026-09-30",
+  "time": "09:30"
+}
+
 ### Citas de Laura Martínez en una fecha, ordenadas por hora
 GET http://localhost:8081/api/appointments/agenda?professionalId=20000000-0000-0000-0000-000000000001&date=2026-09-29
 Authorization: Bearer {{schedulerToken}}

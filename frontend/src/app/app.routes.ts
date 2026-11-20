@@ -30,6 +30,13 @@ export const routes: Routes = [
           import('./features/patient/book-appointment-page/book-appointment-page').then((m) => m.BookAppointmentPage),
       },
       {
+        path: 'scheduler/book-appointment',
+        title: 'Agendar cita | Piedrazul',
+        canActivate: [roleGuard('SCHEDULER')],
+        loadComponent: () =>
+          import('./features/patient/book-appointment-page/book-appointment-page').then((m) => m.BookAppointmentPage),
+      },
+      {
         path: 'scheduler/appointments',
         title: 'Listado de citas | Piedrazul',
         canActivate: [roleGuard('SCHEDULER')],
