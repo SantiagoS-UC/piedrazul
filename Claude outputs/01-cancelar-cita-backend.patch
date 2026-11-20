@@ -1,0 +1,928 @@
+diff --git a/backend/http/appointments.http b/backend/http/appointments.http
+index cf7e2d2..6c16044 100644
+--- a/backend/http/appointments.http
++++ b/backend/http/appointments.http
+@@ -134,3 +134,25 @@ Content-Type: application/json
+   "date": "2026-10-05",
+   "time": "11:00"
+ }
++
++### RF6: citas de la paciente que inició sesión, incluidas las canceladas
++GET http://localhost:8081/api/appointments/mine
++Authorization: Bearer {{patientToken}}
++
++### RF6: cancelar una cita propia. Cambia el id por uno de la lista anterior con "cancellable": true
++POST http://localhost:8081/api/appointments/mine/00000000-0000-0000-0000-000000000000/cancel
++Authorization: Bearer {{patientToken}}
++Content-Type: application/json
++
++{
++  "reason": "Tengo un viaje de trabajo esa semana"
++}
++
++### Sin motivo: responde 400 con el campo reason
++POST http://localhost:8081/api/appointments/mine/00000000-0000-0000-0000-000000000000/cancel
++Authorization: Bearer {{patientToken}}
++Content-Type: application/json
++
++{
++  "reason": ""
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentCommand.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentCommand.java
+new file mode 100644
+index 0000000..4921636
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentCommand.java
+@@ -0,0 +1,9 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import java.util.UUID;
++
++/**
++ * @param patientId paciente que hace la petición, tomado del token
++ */
++public record CancelAppointmentCommand(UUID patientId, UUID appointmentId, String reason) {
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentService.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentService.java
+new file mode 100644
+index 0000000..8763d24
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentService.java
+@@ -0,0 +1,43 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
++import co.edu.unicauca.piedrazul.appointments.domain.AppointmentRepository;
++import co.edu.unicauca.piedrazul.professionals.ProfessionalCatalog;
++import co.edu.unicauca.piedrazul.shared.domain.AccessForbiddenException;
++import co.edu.unicauca.piedrazul.shared.domain.ResourceNotFoundException;
++import java.time.Clock;
++import java.time.LocalDate;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++/**
++ * RF6: el paciente cancela una cita propia con mínimo dos días de anticipación y dejando el motivo.
++ * Las reglas están en Appointment; aquí se valida que la cita sea suya.
++ */
++@Service
++public class CancelAppointmentService {
++
++    private final AppointmentRepository appointmentRepository;
++    private final ProfessionalCatalog professionalCatalog;
++    private final Clock clock;
++
++    CancelAppointmentService(AppointmentRepository appointmentRepository, ProfessionalCatalog professionalCatalog,
++            Clock clock) {
++        this.appointmentRepository = appointmentRepository;
++        this.professionalCatalog = professionalCatalog;
++        this.clock = clock;
++    }
++
++    @Transactional
++    public PatientHistoryEntry cancel(CancelAppointmentCommand command) {
++        Appointment appointment = appointmentRepository.findById(command.appointmentId())
++                .orElseThrow(() -> new ResourceNotFoundException("La cita que quieres cancelar no existe."));
++        if (!appointment.patientId().equals(command.patientId())) {
++            throw new AccessForbiddenException("Solo puedes cancelar tus propias citas.");
++        }
++        Appointment cancelled = appointment.cancel(command.reason(), clock.instant(), LocalDate.now(clock));
++        appointmentRepository.save(cancelled);
++        return new PatientHistoryEntry(cancelled, professionalCatalog.findById(cancelled.professionalId()), false,
++                false);
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistory.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistory.java
+index 7b09012..638059f 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistory.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistory.java
+@@ -16,7 +16,12 @@ public record PatientHistory(PatientSummary patient, List<PatientHistoryEntry> e
+         return entries.stream().filter(PatientHistoryEntry::upcoming).count();
+     }
+ 
++    public long cancelled() {
++        return entries.stream().filter(entry -> entry.appointment().isCancelled()).count();
++    }
++
++    /** Citas vigentes que ya pasaron. */
+     public long past() {
+-        return total() - upcoming();
++        return total() - upcoming() - cancelled();
+     }
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryEntry.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryEntry.java
+index ec96986..d7f170c 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryEntry.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryEntry.java
+@@ -6,8 +6,9 @@ import java.util.Optional;
+ 
+ /**
+  * @param professional vacío si el profesional ya no existe en el catálogo
+- * @param upcoming     si la cita todavía no ha empezado
++ * @param upcoming     si la cita está vigente y todavía no ha empezado
++ * @param cancellable  si el paciente todavía puede cancelarla
+  */
+ public record PatientHistoryEntry(Appointment appointment, Optional<ProfessionalSummary> professional,
+-        boolean upcoming) {
++        boolean upcoming, boolean cancellable) {
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryService.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryService.java
+index a2cb3f0..1548a79 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryService.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryService.java
+@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
+ 
+ /**
+  * RF5: historial de citas de un paciente con todos los profesionales, para el agendador y para
+- * cualquier médico o terapista.
++ * cualquier médico o terapista. El paciente usa la misma consulta para ver sus propias citas.
+  */
+ @Service
+ @Transactional(readOnly = true)
+@@ -53,7 +53,8 @@ public class PatientHistoryQueryService {
+         List<PatientHistoryEntry> entries = appointments.stream()
+                 .map(appointment -> new PatientHistoryEntry(appointment,
+                         Optional.ofNullable(professionals.get(appointment.professionalId())),
+-                        appointment.isUpcomingAt(now)))
++                        !appointment.isCancelled() && appointment.isUpcomingAt(now),
++                        appointment.canBeCancelledOn(now.toLocalDate())))
+                 .toList();
+         return new PatientHistory(patient, entries);
+     }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentService.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentService.java
+index 10e102b..e4f0260 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentService.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentService.java
+@@ -42,6 +42,9 @@ public class RescheduleAppointmentService {
+         if (requester.professional() && !requester.userId().equals(appointment.professionalId())) {
+             throw new AccessForbiddenException("Solo puedes reagendar citas de tu propia agenda.");
+         }
++        if (appointment.isCancelled()) {
++            throw new BusinessRuleViolationException("Esta cita fue cancelada y ya no se puede reagendar.");
++        }
+         LocalDateTime now = LocalDateTime.now(clock);
+         if (!appointment.isUpcomingAt(now)) {
+             throw new BusinessRuleViolationException("Solo se pueden reagendar citas que aún no han empezado.");
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/Appointment.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/Appointment.java
+index af92317..a8ead23 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/Appointment.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/Appointment.java
+@@ -1,18 +1,27 @@
+ package co.edu.unicauca.piedrazul.appointments.domain;
+ 
++import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
+ import java.time.Instant;
+ import java.time.LocalDate;
+ import java.time.LocalDateTime;
+ import java.time.LocalTime;
+ import java.util.Objects;
++import java.util.Optional;
+ import java.util.UUID;
+ 
+ /**
+  * Cita de un paciente con un profesional. Guarda su propia duración para que un cambio posterior
+  * en la configuración del profesional no altere las citas ya agendadas.
++ *
++ * <p>Una cita cancelada no se borra: queda en el historial con su motivo, pero deja de ocupar la franja.
+  */
+ public class Appointment {
+ 
++    /** RF6: se cancela con mínimo dos días de anticipación. */
++    public static final int MIN_DAYS_BEFORE_CANCELLING = 2;
++    public static final int MIN_REASON_LENGTH = 10;
++    public static final int MAX_REASON_LENGTH = 500;
++
+     private final UUID id;
+     private final UUID patientId;
+     private final UUID professionalId;
+@@ -20,9 +29,11 @@ public class Appointment {
+     private final LocalTime startTime;
+     private final int durationMinutes;
+     private final Instant createdAt;
++    /** {@code null} mientras la cita esté vigente. */
++    private final Cancellation cancellation;
+ 
+     private Appointment(UUID id, UUID patientId, UUID professionalId, LocalDate date, LocalTime startTime,
+-            int durationMinutes, Instant createdAt) {
++            int durationMinutes, Instant createdAt, Cancellation cancellation) {
+         this.id = Objects.requireNonNull(id);
+         this.patientId = Objects.requireNonNull(patientId);
+         this.professionalId = Objects.requireNonNull(professionalId);
+@@ -33,16 +44,21 @@ public class Appointment {
+         }
+         this.durationMinutes = durationMinutes;
+         this.createdAt = Objects.requireNonNull(createdAt);
++        this.cancellation = cancellation;
+     }
+ 
+     public static Appointment book(UUID id, UUID patientId, UUID professionalId, LocalDate date,
+             LocalTime startTime, int durationMinutes, Instant createdAt) {
+-        return new Appointment(id, patientId, professionalId, date, startTime, durationMinutes, createdAt);
++        return new Appointment(id, patientId, professionalId, date, startTime, durationMinutes, createdAt, null);
+     }
+ 
++    /**
++     * @param cancellation {@code null} si la cita está vigente
++     */
+     public static Appointment restore(UUID id, UUID patientId, UUID professionalId, LocalDate date,
+-            LocalTime startTime, int durationMinutes, Instant createdAt) {
+-        return new Appointment(id, patientId, professionalId, date, startTime, durationMinutes, createdAt);
++            LocalTime startTime, int durationMinutes, Instant createdAt, Cancellation cancellation) {
++        return new Appointment(id, patientId, professionalId, date, startTime, durationMinutes, createdAt,
++                cancellation);
+     }
+ 
+     /**
+@@ -64,7 +80,61 @@ public class Appointment {
+      * la duración se recibe porque se toma la configuración vigente del profesional.
+      */
+     public Appointment rescheduleTo(LocalDate newDate, LocalTime newStartTime, int newDurationMinutes) {
+-        return new Appointment(id, patientId, professionalId, newDate, newStartTime, newDurationMinutes, createdAt);
++        if (isCancelled()) {
++            throw new BusinessRuleViolationException("Esta cita fue cancelada y ya no se puede reagendar.");
++        }
++        return new Appointment(id, patientId, professionalId, newDate, newStartTime, newDurationMinutes, createdAt,
++                null);
++    }
++
++    /**
++     * Solo se pueden cancelar citas vigentes cuya fecha sea al menos dos días después de hoy: una cita
++     * del miércoles se puede cancelar hasta el lunes.
++     */
++    public boolean canBeCancelledOn(LocalDate today) {
++        return !isCancelled() && !date.isBefore(today.plusDays(MIN_DAYS_BEFORE_CANCELLING));
++    }
++
++    /**
++     * RF6: el paciente cancela la cita dejando el motivo.
++     *
++     * @param today fecha actual en la zona horaria de la clínica
++     */
++    public Appointment cancel(String reason, Instant now, LocalDate today) {
++        if (isCancelled()) {
++            throw new BusinessRuleViolationException("Esta cita ya estaba cancelada.");
++        }
++        if (!canBeCancelledOn(today)) {
++            throw new BusinessRuleViolationException("Las citas se cancelan con mínimo "
++                    + MIN_DAYS_BEFORE_CANCELLING + " días de anticipación. Si no puedes asistir, comunícate con "
++                    + "la clínica.");
++        }
++        String cleanReason = reason == null ? "" : reason.strip();
++        if (cleanReason.isEmpty()) {
++            throw new BusinessRuleViolationException("reason", "Escribe el motivo de la cancelación.");
++        }
++        if (cleanReason.length() < MIN_REASON_LENGTH) {
++            throw new BusinessRuleViolationException("reason",
++                    "Cuéntanos un poco más: el motivo debe tener al menos " + MIN_REASON_LENGTH + " caracteres.");
++        }
++        if (cleanReason.length() > MAX_REASON_LENGTH) {
++            throw new BusinessRuleViolationException("reason",
++                    "El motivo puede tener máximo " + MAX_REASON_LENGTH + " caracteres.");
++        }
++        return new Appointment(id, patientId, professionalId, date, startTime, durationMinutes, createdAt,
++                new Cancellation(cleanReason, now));
++    }
++
++    public boolean isCancelled() {
++        return cancellation != null;
++    }
++
++    public AppointmentStatus status() {
++        return isCancelled() ? AppointmentStatus.CANCELLED : AppointmentStatus.SCHEDULED;
++    }
++
++    public Optional<Cancellation> cancellation() {
++        return Optional.ofNullable(cancellation);
+     }
+ 
+     public boolean startsAt(LocalDate otherDate, LocalTime otherStart) {
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java
+index 8f91c3b..b5fde0d 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java
+@@ -17,12 +17,18 @@ public interface AppointmentRepository {
+ 
+     Optional<Appointment> findById(UUID appointmentId);
+ 
++    /**
++     * Citas vigentes del profesional en la fecha. Las canceladas no cuentan: ya no ocupan la franja.
++     */
+     List<Appointment> findByProfessionalAndDate(UUID professionalId, LocalDate date);
+ 
++    /**
++     * Citas vigentes del paciente en la fecha.
++     */
+     List<Appointment> findByPatientAndDate(UUID patientId, LocalDate date);
+ 
+     /**
+-     * Todas las citas del paciente, de la más reciente a la más antigua.
++     * Todas las citas del paciente, incluidas las canceladas, de la más reciente a la más antigua.
+      */
+     List<Appointment> findByPatient(UUID patientId);
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentStatus.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentStatus.java
+new file mode 100644
+index 0000000..907271e
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentStatus.java
+@@ -0,0 +1,8 @@
++package co.edu.unicauca.piedrazul.appointments.domain;
++
++public enum AppointmentStatus {
++    /** Vigente: ocupa su franja. */
++    SCHEDULED,
++    /** El paciente la canceló; la franja queda libre para otra persona. */
++    CANCELLED
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/Cancellation.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/Cancellation.java
+new file mode 100644
+index 0000000..8241b0d
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/Cancellation.java
+@@ -0,0 +1,15 @@
++package co.edu.unicauca.piedrazul.appointments.domain;
++
++import java.time.Instant;
++import java.util.Objects;
++
++/**
++ * Motivo y momento en que el paciente canceló la cita.
++ */
++public record Cancellation(String reason, Instant cancelledAt) {
++
++    public Cancellation {
++        Objects.requireNonNull(reason);
++        Objects.requireNonNull(cancelledAt);
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentEntity.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentEntity.java
+index 8617782..c0a6af8 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentEntity.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentEntity.java
+@@ -1,8 +1,12 @@
+ package co.edu.unicauca.piedrazul.appointments.infrastructure.persistence;
+ 
+ import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
++import co.edu.unicauca.piedrazul.appointments.domain.AppointmentStatus;
++import co.edu.unicauca.piedrazul.appointments.domain.Cancellation;
+ import jakarta.persistence.Column;
+ import jakarta.persistence.Entity;
++import jakarta.persistence.EnumType;
++import jakarta.persistence.Enumerated;
+ import jakarta.persistence.Id;
+ import jakarta.persistence.Table;
+ import java.time.Instant;
+@@ -35,6 +39,16 @@ class AppointmentEntity {
+     @Column(name = "created_at", nullable = false)
+     private Instant createdAt;
+ 
++    @Enumerated(EnumType.STRING)
++    @Column(name = "status", nullable = false)
++    private AppointmentStatus status;
++
++    @Column(name = "cancellation_reason")
++    private String cancellationReason;
++
++    @Column(name = "cancelled_at")
++    private Instant cancelledAt;
++
+     protected AppointmentEntity() {
+         // Requerido por JPA.
+     }
+@@ -48,11 +62,19 @@ class AppointmentEntity {
+         entity.startTime = appointment.startTime();
+         entity.durationMinutes = appointment.durationMinutes();
+         entity.createdAt = appointment.createdAt();
++        entity.status = appointment.status();
++        appointment.cancellation().ifPresent(cancellation -> {
++            entity.cancellationReason = cancellation.reason();
++            entity.cancelledAt = cancellation.cancelledAt();
++        });
+         return entity;
+     }
+ 
+     Appointment toDomain() {
++        Cancellation cancellation = status == AppointmentStatus.CANCELLED
++                ? new Cancellation(cancellationReason, cancelledAt)
++                : null;
+         return Appointment.restore(id, patientId, professionalId, appointmentDate, startTime, durationMinutes,
+-                createdAt);
++                createdAt, cancellation);
+     }
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java
+index fb30f23..d9ef291 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java
+@@ -1,5 +1,6 @@
+ package co.edu.unicauca.piedrazul.appointments.infrastructure.persistence;
+ 
++import co.edu.unicauca.piedrazul.appointments.domain.AppointmentStatus;
+ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.UUID;
+@@ -7,11 +8,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
+ 
+ interface AppointmentJpaRepository extends JpaRepository<AppointmentEntity, UUID> {
+ 
+-    List<AppointmentEntity> findByProfessionalIdAndAppointmentDateOrderByStartTime(UUID professionalId,
+-            LocalDate appointmentDate);
++    List<AppointmentEntity> findByProfessionalIdAndAppointmentDateAndStatusOrderByStartTime(UUID professionalId,
++            LocalDate appointmentDate, AppointmentStatus status);
+ 
+-    List<AppointmentEntity> findByPatientIdAndAppointmentDateOrderByStartTime(UUID patientId,
+-            LocalDate appointmentDate);
++    List<AppointmentEntity> findByPatientIdAndAppointmentDateAndStatusOrderByStartTime(UUID patientId,
++            LocalDate appointmentDate, AppointmentStatus status);
+ 
+     List<AppointmentEntity> findByPatientIdOrderByAppointmentDateDescStartTimeDesc(UUID patientId);
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java
+index a3b7792..11f1df8 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java
+@@ -2,6 +2,7 @@ package co.edu.unicauca.piedrazul.appointments.infrastructure.persistence;
+ 
+ import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
+ import co.edu.unicauca.piedrazul.appointments.domain.AppointmentRepository;
++import co.edu.unicauca.piedrazul.appointments.domain.AppointmentStatus;
+ import co.edu.unicauca.piedrazul.appointments.domain.PatientAlreadyBookedException;
+ import co.edu.unicauca.piedrazul.appointments.domain.SlotTakenException;
+ import java.time.LocalDate;
+@@ -14,7 +15,7 @@ import org.springframework.stereotype.Repository;
+ @Repository
+ class AppointmentRepositoryAdapter implements AppointmentRepository {
+ 
+-    // Nombres de las restricciones únicas de V4_1__create_appointments_table.sql.
++    // Nombres de los índices únicos de V4_2__add_appointment_cancellation.sql (antes restricciones de V4_1).
+     static final String PROFESSIONAL_SLOT_CONSTRAINT = "uq_appointments_professional_slot";
+     static final String PATIENT_SLOT_CONSTRAINT = "uq_appointments_patient_slot";
+ 
+@@ -51,7 +52,10 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
+ 
+     @Override
+     public List<Appointment> findByProfessionalAndDate(UUID professionalId, LocalDate date) {
+-        return jpaRepository.findByProfessionalIdAndAppointmentDateOrderByStartTime(professionalId, date).stream()
++        return jpaRepository
++                .findByProfessionalIdAndAppointmentDateAndStatusOrderByStartTime(professionalId, date,
++                        AppointmentStatus.SCHEDULED)
++                .stream()
+                 .map(AppointmentEntity::toDomain)
+                 .toList();
+     }
+@@ -65,7 +69,10 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
+ 
+     @Override
+     public List<Appointment> findByPatientAndDate(UUID patientId, LocalDate date) {
+-        return jpaRepository.findByPatientIdAndAppointmentDateOrderByStartTime(patientId, date).stream()
++        return jpaRepository
++                .findByPatientIdAndAppointmentDateAndStatusOrderByStartTime(patientId, date,
++                        AppointmentStatus.SCHEDULED)
++                .stream()
+                 .map(AppointmentEntity::toDomain)
+                 .toList();
+     }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/CancelAppointmentRequest.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/CancelAppointmentRequest.java
+new file mode 100644
+index 0000000..19b2f87
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/CancelAppointmentRequest.java
+@@ -0,0 +1,10 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import jakarta.validation.constraints.NotBlank;
++import jakarta.validation.constraints.Size;
++
++public record CancelAppointmentRequest(
++        @NotBlank(message = "Escribe el motivo de la cancelación.")
++        @Size(max = 500, message = "El motivo puede tener máximo 500 caracteres.")
++        String reason) {
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MyAppointmentResponse.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MyAppointmentResponse.java
+new file mode 100644
+index 0000000..1519ce2
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MyAppointmentResponse.java
+@@ -0,0 +1,28 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import co.edu.unicauca.piedrazul.appointments.application.PatientHistoryEntry;
++import co.edu.unicauca.piedrazul.professionals.ProfessionalSummary;
++import java.time.LocalDate;
++import java.util.UUID;
++
++/**
++ * Una cita del paciente tal como la ve él mismo.
++ *
++ * @param time               hora de inicio en formato HH:mm
++ * @param status             UPCOMING, PAST o CANCELLED
++ * @param cancellable        si todavía puede cancelarla (mínimo dos días antes)
++ * @param cancellationReason {@code null} si la cita no se canceló
++ */
++public record MyAppointmentResponse(UUID id, LocalDate date, String time, int durationMinutes,
++        String professionalName, String specialtyName, String status, boolean cancellable,
++        String cancellationReason) {
++
++    static MyAppointmentResponse from(PatientHistoryEntry entry) {
++        return new MyAppointmentResponse(entry.appointment().id(), entry.appointment().date(),
++                TimeFormat.format(entry.appointment().startTime()), entry.appointment().durationMinutes(),
++                entry.professional().map(ProfessionalSummary::fullName).orElse("Profesional no encontrado"),
++                entry.professional().map(ProfessionalSummary::specialtyName).orElse(""),
++                PatientHistoryResponse.statusOf(entry), entry.cancellable(),
++                PatientHistoryResponse.cancellationReasonOf(entry));
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MyAppointmentsController.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MyAppointmentsController.java
+new file mode 100644
+index 0000000..edbaf8f
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MyAppointmentsController.java
+@@ -0,0 +1,53 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import co.edu.unicauca.piedrazul.appointments.application.CancelAppointmentCommand;
++import co.edu.unicauca.piedrazul.appointments.application.CancelAppointmentService;
++import co.edu.unicauca.piedrazul.appointments.application.PatientHistoryQueryService;
++import jakarta.validation.Valid;
++import java.util.List;
++import java.util.UUID;
++import org.springframework.security.access.prepost.PreAuthorize;
++import org.springframework.security.core.annotation.AuthenticationPrincipal;
++import org.springframework.security.oauth2.jwt.Jwt;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.PathVariable;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++
++/**
++ * Citas del paciente que inició sesión y RF6, cancelación. El paciente sale del token: nadie puede
++ * ver ni cancelar citas de otra persona.
++ */
++@RestController
++@RequestMapping("/api/appointments/mine")
++@PreAuthorize("hasRole('PATIENT')")
++public class MyAppointmentsController {
++
++    private final PatientHistoryQueryService patientHistoryQueryService;
++    private final CancelAppointmentService cancelAppointmentService;
++
++    public MyAppointmentsController(PatientHistoryQueryService patientHistoryQueryService,
++            CancelAppointmentService cancelAppointmentService) {
++        this.patientHistoryQueryService = patientHistoryQueryService;
++        this.cancelAppointmentService = cancelAppointmentService;
++    }
++
++    /** De la más reciente a la más antigua, incluidas las canceladas. */
++    @GetMapping
++    public List<MyAppointmentResponse> myAppointments(@AuthenticationPrincipal Jwt jwt) {
++        return patientHistoryQueryService.historyOf(UUID.fromString(jwt.getSubject())).entries().stream()
++                .map(MyAppointmentResponse::from)
++                .toList();
++    }
++
++    // POST y no DELETE: la cita no se borra, cambia de estado y guarda el motivo.
++    @PostMapping("/{appointmentId}/cancel")
++    public MyAppointmentResponse cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID appointmentId,
++            @Valid @RequestBody CancelAppointmentRequest request) {
++        CancelAppointmentCommand command = new CancelAppointmentCommand(UUID.fromString(jwt.getSubject()),
++                appointmentId, request.reason());
++        return MyAppointmentResponse.from(cancelAppointmentService.cancel(command));
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/PatientHistoryResponse.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/PatientHistoryResponse.java
+index fad3def..ea2b175 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/PatientHistoryResponse.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/PatientHistoryResponse.java
+@@ -2,6 +2,7 @@ package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
+ 
+ import co.edu.unicauca.piedrazul.appointments.application.PatientHistory;
+ import co.edu.unicauca.piedrazul.appointments.application.PatientHistoryEntry;
++import co.edu.unicauca.piedrazul.appointments.domain.Cancellation;
+ import co.edu.unicauca.piedrazul.identity.PatientSummary;
+ import co.edu.unicauca.piedrazul.professionals.ProfessionalSummary;
+ import java.time.LocalDate;
+@@ -13,6 +14,7 @@ public record PatientHistoryResponse(
+         int total,
+         long upcoming,
+         long past,
++        long cancelled,
+         List<HistoryAppointmentResponse> appointments) {
+ 
+     public record HistoryPatientResponse(UUID id, String givenNames, String lastNames, String documentType,
+@@ -25,11 +27,12 @@ public record PatientHistoryResponse(
+     }
+ 
+     /**
+-     * @param time   hora de inicio en formato HH:mm
+-     * @param status UPCOMING o PAST
++     * @param time               hora de inicio en formato HH:mm
++     * @param status             UPCOMING, PAST o CANCELLED
++     * @param cancellationReason motivo que dejó el paciente; {@code null} si la cita no se canceló
+      */
+     public record HistoryAppointmentResponse(UUID id, LocalDate date, String time, int durationMinutes,
+-            String professionalName, String specialtyName, String status) {
++            String professionalName, String specialtyName, String status, String cancellationReason) {
+     }
+ 
+     static PatientHistoryResponse from(PatientHistory history) {
+@@ -37,7 +40,7 @@ public record PatientHistoryResponse(
+                 .map(PatientHistoryResponse::toResponse)
+                 .toList();
+         return new PatientHistoryResponse(HistoryPatientResponse.from(history.patient()), history.total(),
+-                history.upcoming(), history.past(), appointments);
++                history.upcoming(), history.past(), history.cancelled(), appointments);
+     }
+ 
+     private static HistoryAppointmentResponse toResponse(PatientHistoryEntry entry) {
+@@ -45,6 +48,17 @@ public record PatientHistoryResponse(
+         String specialtyName = entry.professional().map(ProfessionalSummary::specialtyName).orElse("");
+         return new HistoryAppointmentResponse(entry.appointment().id(), entry.appointment().date(),
+                 TimeFormat.format(entry.appointment().startTime()), entry.appointment().durationMinutes(),
+-                professionalName, specialtyName, entry.upcoming() ? "UPCOMING" : "PAST");
++                professionalName, specialtyName, statusOf(entry), cancellationReasonOf(entry));
++    }
++
++    static String statusOf(PatientHistoryEntry entry) {
++        if (entry.appointment().isCancelled()) {
++            return "CANCELLED";
++        }
++        return entry.upcoming() ? "UPCOMING" : "PAST";
++    }
++
++    static String cancellationReasonOf(PatientHistoryEntry entry) {
++        return entry.appointment().cancellation().map(Cancellation::reason).orElse(null);
+     }
+ }
+diff --git a/backend/src/main/resources/db/migration/appointments/V4_2__add_appointment_cancellation.sql b/backend/src/main/resources/db/migration/appointments/V4_2__add_appointment_cancellation.sql
+new file mode 100644
+index 0000000..d483b0e
+--- /dev/null
++++ b/backend/src/main/resources/db/migration/appointments/V4_2__add_appointment_cancellation.sql
+@@ -0,0 +1,22 @@
++-- RF6: el paciente puede cancelar una cita. La cita no se borra para que siga en el historial con su
++-- motivo, pero una cita cancelada no debe impedir que otra persona tome la misma franja.
++--
++-- Por eso las restricciones únicas pasan a ser índices únicos parciales que solo cuentan las citas
++-- vigentes. Conservan los mismos nombres porque AppointmentRepositoryAdapter los reconoce por nombre.
++
++ALTER TABLE appointments
++    ADD COLUMN status              VARCHAR(20)  NOT NULL DEFAULT 'SCHEDULED'
++        CHECK (status IN ('SCHEDULED', 'CANCELLED')),
++    ADD COLUMN cancellation_reason VARCHAR(500),
++    ADD COLUMN cancelled_at        TIMESTAMPTZ;
++
++ALTER TABLE appointments DROP CONSTRAINT uq_appointments_professional_slot;
++ALTER TABLE appointments DROP CONSTRAINT uq_appointments_patient_slot;
++
++CREATE UNIQUE INDEX uq_appointments_professional_slot
++    ON appointments (professional_id, appointment_date, start_time)
++    WHERE status = 'SCHEDULED';
++
++CREATE UNIQUE INDEX uq_appointments_patient_slot
++    ON appointments (patient_id, appointment_date, start_time)
++    WHERE status = 'SCHEDULED';
+diff --git a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentServiceTest.java b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentServiceTest.java
+new file mode 100644
+index 0000000..9095926
+--- /dev/null
++++ b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/CancelAppointmentServiceTest.java
+@@ -0,0 +1,107 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.CLOCK;
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.LAURA;
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.NEXT_TUESDAY;
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.NEXT_WEDNESDAY;
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.lenient;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++import static org.mockito.Mockito.when;
++
++import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
++import co.edu.unicauca.piedrazul.appointments.domain.AppointmentRepository;
++import co.edu.unicauca.piedrazul.professionals.ProfessionalCatalog;
++import co.edu.unicauca.piedrazul.shared.domain.AccessForbiddenException;
++import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
++import co.edu.unicauca.piedrazul.shared.domain.ResourceNotFoundException;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.time.LocalTime;
++import java.util.Optional;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.ArgumentCaptor;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++@ExtendWith(MockitoExtension.class)
++class CancelAppointmentServiceTest {
++
++    private static final UUID PATIENT_ID = UUID.randomUUID();
++    private static final String REASON = "Tengo un viaje de trabajo";
++
++    @Mock
++    private AppointmentRepository appointmentRepository;
++    @Mock
++    private ProfessionalCatalog professionalCatalog;
++
++    private CancelAppointmentService service;
++
++    @BeforeEach
++    void setUp() {
++        service = new CancelAppointmentService(appointmentRepository, professionalCatalog, CLOCK);
++        lenient().when(professionalCatalog.findById(LAURA.id())).thenReturn(Optional.of(LAURA));
++    }
++
++    @Test
++    @DisplayName("El paciente cancela su cita con dos días de anticipación y queda guardada como cancelada")
++    void cancelsOwnAppointment() {
++        Appointment appointment = appointmentOn(NEXT_WEDNESDAY, PATIENT_ID);
++
++        PatientHistoryEntry result = service.cancel(new CancelAppointmentCommand(PATIENT_ID, appointment.id(),
++                REASON));
++
++        ArgumentCaptor<Appointment> captor = ArgumentCaptor.forClass(Appointment.class);
++        verify(appointmentRepository).save(captor.capture());
++        assertThat(captor.getValue().isCancelled()).isTrue();
++        assertThat(captor.getValue().cancellation().orElseThrow().reason()).isEqualTo(REASON);
++        assertThat(captor.getValue().cancellation().orElseThrow().cancelledAt()).isEqualTo(CLOCK.instant());
++        assertThat(result.professional()).contains(LAURA);
++        assertThat(result.cancellable()).isFalse();
++    }
++
++    @Test
++    @DisplayName("No cancela una cita de mañana")
++    void rejectsLessThanTwoDays() {
++        Appointment appointment = appointmentOn(NEXT_TUESDAY, PATIENT_ID);
++
++        assertThatThrownBy(() -> service.cancel(new CancelAppointmentCommand(PATIENT_ID, appointment.id(), REASON)))
++                .isInstanceOf(BusinessRuleViolationException.class);
++        verify(appointmentRepository, never()).save(any());
++    }
++
++    @Test
++    @DisplayName("Un paciente no puede cancelar la cita de otro")
++    void rejectsOtherPatient() {
++        Appointment appointment = appointmentOn(NEXT_WEDNESDAY, UUID.randomUUID());
++
++        assertThatThrownBy(() -> service.cancel(new CancelAppointmentCommand(PATIENT_ID, appointment.id(), REASON)))
++                .isInstanceOf(AccessForbiddenException.class)
++                .hasMessage("Solo puedes cancelar tus propias citas.");
++        verify(appointmentRepository, never()).save(any());
++    }
++
++    @Test
++    @DisplayName("Avisa si la cita no existe")
++    void rejectsUnknownAppointment() {
++        UUID unknown = UUID.randomUUID();
++        when(appointmentRepository.findById(unknown)).thenReturn(Optional.empty());
++
++        assertThatThrownBy(() -> service.cancel(new CancelAppointmentCommand(PATIENT_ID, unknown, REASON)))
++                .isInstanceOf(ResourceNotFoundException.class);
++    }
++
++    private Appointment appointmentOn(LocalDate date, UUID patientId) {
++        Appointment appointment = Appointment.book(UUID.randomUUID(), patientId, LAURA.id(), date,
++                LocalTime.of(10, 0), 30, Instant.parse("2026-09-20T15:00:00Z"));
++        when(appointmentRepository.findById(appointment.id())).thenReturn(Optional.of(appointment));
++        return appointment;
++    }
++}
+diff --git a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryServiceTest.java b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryServiceTest.java
+index 1543187..0efd676 100644
+--- a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryServiceTest.java
++++ b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/PatientHistoryQueryServiceTest.java
+@@ -70,6 +70,26 @@ class PatientHistoryQueryServiceTest {
+         assertThat(history.past()).isEqualTo(2);
+     }
+ 
++    @Test
++    @DisplayName("Cuenta aparte las canceladas y marca cuáles se pueden cancelar todavía")
++    void separatesCancelledAppointments() {
++        Appointment inThreeDays = appointmentWith(LAURA.id(), TODAY.plusDays(3), LocalTime.of(8, 0));
++        Appointment tomorrow = appointmentWith(LAURA.id(), TODAY.plusDays(1), LocalTime.of(8, 0));
++        Appointment cancelled = appointmentWith(LAURA.id(), TODAY.plusDays(4), LocalTime.of(9, 0))
++                .cancel("Tengo un viaje de trabajo", CLOCK.instant(), TODAY);
++        when(patientDirectory.findByIds(List.of(ANA.id()))).thenReturn(List.of(ANA));
++        when(appointmentRepository.findByPatient(ANA.id())).thenReturn(List.of(cancelled, inThreeDays, tomorrow));
++        when(professionalCatalog.findAll()).thenReturn(List.of(LAURA));
++
++        PatientHistory history = service.historyOf(ANA.id());
++
++        assertThat(history.entries()).extracting(PatientHistoryEntry::upcoming).containsExactly(false, true, true);
++        assertThat(history.entries()).extracting(PatientHistoryEntry::cancellable).containsExactly(false, true, false);
++        assertThat(history.upcoming()).isEqualTo(2);
++        assertThat(history.cancelled()).isEqualTo(1);
++        assertThat(history.past()).isZero();
++    }
++
+     @Test
+     @DisplayName("Devuelve un historial vacío si el paciente aún no tiene citas")
+     void emptyHistory() {
+diff --git a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentServiceTest.java b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentServiceTest.java
+index f3398a0..ed31c3f 100644
+--- a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentServiceTest.java
++++ b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/RescheduleAppointmentServiceTest.java
+@@ -147,6 +147,18 @@ class RescheduleAppointmentServiceTest {
+                 .hasMessage("Solo se pueden reagendar citas que aún no han empezado.");
+     }
+ 
++    @Test
++    @DisplayName("No reagenda una cita cancelada")
++    void rejectsCancelledAppointment() {
++        Appointment cancelled = appointment.cancel("Tengo un viaje de trabajo", CREATED_AT, TODAY);
++        when(appointmentRepository.findById(cancelled.id())).thenReturn(Optional.of(cancelled));
++
++        assertThatThrownBy(() -> service.reschedule(laura(), command(NEXT_MONDAY, ELEVEN_AM)))
++                .isInstanceOf(BusinessRuleViolationException.class)
++                .hasMessage("Esta cita fue cancelada y ya no se puede reagendar.");
++        verify(appointmentRepository, never()).save(any());
++    }
++
+     @Test
+     @DisplayName("Pide una fecha u hora distinta a la actual")
+     void rejectsSameSlot() {
+diff --git a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentTest.java b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentTest.java
+index 01a6866..83b2afe 100644
+--- a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentTest.java
++++ b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentTest.java
+@@ -3,6 +3,7 @@ package co.edu.unicauca.piedrazul.appointments.domain;
+ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.assertj.core.api.Assertions.assertThatThrownBy;
+ 
++import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
+ import java.time.Instant;
+ import java.time.LocalDate;
+ import java.time.LocalTime;
+@@ -96,6 +97,63 @@ class AppointmentTest {
+         assertThat(appointment.isUpcomingAt(DATE.plusDays(1).atTime(7, 0))).isFalse();
+     }
+ 
++    @Test
++    @DisplayName("Se cancela con el motivo sin espacios sobrantes y deja de estar vigente")
++    void cancelsWithReason() {
++        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
++        Instant now = Instant.parse("2026-09-26T13:00:00Z");
++
++        Appointment cancelled = appointment.cancel("  Tengo un viaje de trabajo  ", now, DATE.minusDays(2));
++
++        assertThat(cancelled.isCancelled()).isTrue();
++        assertThat(cancelled.status()).isEqualTo(AppointmentStatus.CANCELLED);
++        assertThat(cancelled.cancellation()).contains(new Cancellation("Tengo un viaje de trabajo", now));
++        assertThat(cancelled.id()).isEqualTo(appointment.id());
++        assertThat(appointment.isCancelled()).isFalse();
++    }
++
++    @Test
++    @DisplayName("Se puede cancelar hasta dos días antes, no después")
++    void requiresTwoDaysInAdvance() {
++        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
++
++        assertThat(appointment.canBeCancelledOn(DATE.minusDays(3))).isTrue();
++        assertThat(appointment.canBeCancelledOn(DATE.minusDays(2))).isTrue();
++        assertThat(appointment.canBeCancelledOn(DATE.minusDays(1))).isFalse();
++        assertThat(appointment.canBeCancelledOn(DATE)).isFalse();
++        assertThatThrownBy(() -> appointment.cancel("Tengo un viaje de trabajo", Instant.now(), DATE.minusDays(1)))
++                .isInstanceOf(BusinessRuleViolationException.class)
++                .hasMessageContaining("mínimo 2 días de anticipación");
++    }
++
++    @Test
++    @DisplayName("Exige un motivo de al menos 10 caracteres")
++    void requiresReason() {
++        Appointment appointment = appointmentAt(LocalTime.of(8, 0), 30);
++        LocalDate today = DATE.minusDays(5);
++
++        assertThatThrownBy(() -> appointment.cancel("   ", Instant.now(), today))
++                .isInstanceOf(BusinessRuleViolationException.class)
++                .hasMessage("Escribe el motivo de la cancelación.");
++        assertThatThrownBy(() -> appointment.cancel("No puedo", Instant.now(), today))
++                .isInstanceOf(BusinessRuleViolationException.class)
++                .hasMessageContaining("al menos 10 caracteres");
++    }
++
++    @Test
++    @DisplayName("Una cita cancelada no se vuelve a cancelar ni se puede reagendar")
++    void cancelledIsFinal() {
++        Appointment cancelled = appointmentAt(LocalTime.of(8, 0), 30)
++                .cancel("Tengo un viaje de trabajo", Instant.now(), DATE.minusDays(5));
++
++        assertThat(cancelled.canBeCancelledOn(DATE.minusDays(5))).isFalse();
++        assertThatThrownBy(() -> cancelled.cancel("Otra vez el mismo motivo", Instant.now(), DATE.minusDays(5)))
++                .isInstanceOf(BusinessRuleViolationException.class)
++                .hasMessage("Esta cita ya estaba cancelada.");
++        assertThatThrownBy(() -> cancelled.rescheduleTo(DATE.plusDays(1), LocalTime.of(9, 0), 30))
++                .isInstanceOf(BusinessRuleViolationException.class);
++    }
++
+     private static Appointment appointmentAt(LocalTime start, int minutes) {
+         return Appointment.book(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), DATE, start, minutes,
+                 Instant.parse("2026-09-26T15:00:00Z"));

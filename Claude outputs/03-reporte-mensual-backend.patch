@@ -1,0 +1,442 @@
+diff --git a/backend/http/appointments.http b/backend/http/appointments.http
+index 6c16044..1c452da 100644
+--- a/backend/http/appointments.http
++++ b/backend/http/appointments.http
+@@ -156,3 +156,11 @@ Content-Type: application/json
+ {
+   "reason": ""
+ }
++
++### RF7: reporte de citas por mes y profesional de 2026 (sin year devuelve el año actual)
++GET http://localhost:8081/api/appointments/report/monthly?year=2026
++Authorization: Bearer {{professionalToken}}
++
++### Un paciente no puede ver el reporte: responde 403
++GET http://localhost:8081/api/appointments/report/monthly
++Authorization: Bearer {{patientToken}}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/AppointmentReportService.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/AppointmentReportService.java
+new file mode 100644
+index 0000000..143a064
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/AppointmentReportService.java
+@@ -0,0 +1,87 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
++import co.edu.unicauca.piedrazul.appointments.domain.AppointmentRepository;
++import co.edu.unicauca.piedrazul.professionals.ProfessionalCatalog;
++import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
++import java.time.Clock;
++import java.time.LocalDate;
++import java.time.Year;
++import java.util.Arrays;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.UUID;
++import java.util.stream.IntStream;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++/**
++ * RF7: reporte de cantidad de citas por mes y profesional para un año. Cuenta las citas vigentes,
++ * ya atendidas o por atender; las canceladas no se cuentan porque no ocuparon la agenda.
++ */
++@Service
++@Transactional(readOnly = true)
++public class AppointmentReportService {
++
++    private static final int FIRST_VALID_YEAR = 2000;
++    private static final int LAST_VALID_YEAR = 2100;
++
++    private final ProfessionalCatalog professionalCatalog;
++    private final AppointmentRepository appointmentRepository;
++    private final Clock clock;
++
++    AppointmentReportService(ProfessionalCatalog professionalCatalog, AppointmentRepository appointmentRepository,
++            Clock clock) {
++        this.professionalCatalog = professionalCatalog;
++        this.appointmentRepository = appointmentRepository;
++        this.clock = clock;
++    }
++
++    /**
++     * @param requestedYear {@code null} para el año actual
++     */
++    public MonthlyAppointmentsReport monthlyReport(Integer requestedYear) {
++        int currentYear = Year.now(clock).getValue();
++        int year = requestedYear == null ? currentYear : requestedYear;
++        if (year < FIRST_VALID_YEAR || year > LAST_VALID_YEAR) {
++            throw new BusinessRuleViolationException("year", "Elige un año válido.");
++        }
++
++        // Pocas citas por año en una clínica: se cuentan en memoria en lugar de agrupar en SQL.
++        Map<UUID, int[]> countsByProfessional = new HashMap<>();
++        for (Appointment appointment : appointmentRepository.findScheduledBetween(LocalDate.of(year, 1, 1),
++                LocalDate.of(year, 12, 31))) {
++            int[] counts = countsByProfessional.computeIfAbsent(appointment.professionalId(), id -> new int[12]);
++            counts[appointment.date().getMonthValue() - 1]++;
++        }
++
++        // Los inactivos solo aparecen si tuvieron citas ese año.
++        List<ProfessionalMonthlyCounts> rows = professionalCatalog.findAll().stream()
++                .filter(professional -> professional.active() || countsByProfessional.containsKey(professional.id()))
++                .map(professional -> new ProfessionalMonthlyCounts(professional,
++                        toList(countsByProfessional.getOrDefault(professional.id(), new int[12]))))
++                .toList();
++        return new MonthlyAppointmentsReport(year, availableYears(currentYear), rows);
++    }
++
++    /**
++     * Desde el año de la primera cita hasta el año actual, o hasta el de la última cita si hay citas
++     * agendadas para el año siguiente.
++     */
++    private List<Integer> availableYears(int currentYear) {
++        int first = appointmentRepository.firstScheduledDate()
++                .map(LocalDate::getYear)
++                .map(year -> Math.min(year, currentYear))
++                .orElse(currentYear);
++        int last = appointmentRepository.lastScheduledDate()
++                .map(LocalDate::getYear)
++                .map(year -> Math.max(year, currentYear))
++                .orElse(currentYear);
++        return IntStream.rangeClosed(first, last).boxed().toList();
++    }
++
++    private static List<Integer> toList(int[] counts) {
++        return Arrays.stream(counts).boxed().toList();
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/MonthlyAppointmentsReport.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/MonthlyAppointmentsReport.java
+new file mode 100644
+index 0000000..2a40640
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/MonthlyAppointmentsReport.java
+@@ -0,0 +1,30 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import java.util.List;
++import java.util.stream.IntStream;
++
++/**
++ * RF7: cantidad de citas vigentes por mes y profesional en un año.
++ *
++ * @param availableYears años que se pueden consultar, de menor a mayor
++ * @param professionals  en orden alfabético por apellido
++ */
++public record MonthlyAppointmentsReport(int year, List<Integer> availableYears,
++        List<ProfessionalMonthlyCounts> professionals) {
++
++    public MonthlyAppointmentsReport {
++        availableYears = List.copyOf(availableYears);
++        professionals = List.copyOf(professionals);
++    }
++
++    /** Doce valores: total de la clínica de enero a diciembre. */
++    public List<Integer> monthTotals() {
++        return IntStream.range(0, 12)
++                .mapToObj(month -> professionals.stream().mapToInt(row -> row.counts().get(month)).sum())
++                .toList();
++    }
++
++    public int total() {
++        return professionals.stream().mapToInt(ProfessionalMonthlyCounts::total).sum();
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/ProfessionalMonthlyCounts.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/ProfessionalMonthlyCounts.java
+new file mode 100644
+index 0000000..f3bc4b5
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/application/ProfessionalMonthlyCounts.java
+@@ -0,0 +1,21 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import co.edu.unicauca.piedrazul.professionals.ProfessionalSummary;
++import java.util.List;
++
++/**
++ * @param counts doce valores: citas de enero a diciembre
++ */
++public record ProfessionalMonthlyCounts(ProfessionalSummary professional, List<Integer> counts) {
++
++    public ProfessionalMonthlyCounts {
++        counts = List.copyOf(counts);
++        if (counts.size() != 12) {
++            throw new IllegalArgumentException("Se esperan los conteos de los doce meses.");
++        }
++    }
++
++    public int total() {
++        return counts.stream().mapToInt(Integer::intValue).sum();
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java
+index b5fde0d..54035a6 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/domain/AppointmentRepository.java
+@@ -31,4 +31,15 @@ public interface AppointmentRepository {
+      * Todas las citas del paciente, incluidas las canceladas, de la más reciente a la más antigua.
+      */
+     List<Appointment> findByPatient(UUID patientId);
++
++    /**
++     * Citas vigentes entre dos fechas, ambas incluidas. Las usa el reporte mensual.
++     */
++    List<Appointment> findScheduledBetween(LocalDate from, LocalDate to);
++
++    /** Fecha de la primera cita vigente registrada. */
++    Optional<LocalDate> firstScheduledDate();
++
++    /** Fecha de la última cita vigente registrada. */
++    Optional<LocalDate> lastScheduledDate();
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java
+index d9ef291..ce95b6e 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentJpaRepository.java
+@@ -3,6 +3,7 @@ package co.edu.unicauca.piedrazul.appointments.infrastructure.persistence;
+ import co.edu.unicauca.piedrazul.appointments.domain.AppointmentStatus;
+ import java.time.LocalDate;
+ import java.util.List;
++import java.util.Optional;
+ import java.util.UUID;
+ import org.springframework.data.jpa.repository.JpaRepository;
+ 
+@@ -15,4 +16,11 @@ interface AppointmentJpaRepository extends JpaRepository<AppointmentEntity, UUID
+             LocalDate appointmentDate, AppointmentStatus status);
+ 
+     List<AppointmentEntity> findByPatientIdOrderByAppointmentDateDescStartTimeDesc(UUID patientId);
++
++    List<AppointmentEntity> findByAppointmentDateBetweenAndStatus(LocalDate from, LocalDate to,
++            AppointmentStatus status);
++
++    Optional<AppointmentEntity> findFirstByStatusOrderByAppointmentDateAsc(AppointmentStatus status);
++
++    Optional<AppointmentEntity> findFirstByStatusOrderByAppointmentDateDesc(AppointmentStatus status);
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java
+index 11f1df8..742152f 100644
+--- a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/persistence/AppointmentRepositoryAdapter.java
+@@ -76,4 +76,23 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
+                 .map(AppointmentEntity::toDomain)
+                 .toList();
+     }
++
++    @Override
++    public List<Appointment> findScheduledBetween(LocalDate from, LocalDate to) {
++        return jpaRepository.findByAppointmentDateBetweenAndStatus(from, to, AppointmentStatus.SCHEDULED).stream()
++                .map(AppointmentEntity::toDomain)
++                .toList();
++    }
++
++    @Override
++    public Optional<LocalDate> firstScheduledDate() {
++        return jpaRepository.findFirstByStatusOrderByAppointmentDateAsc(AppointmentStatus.SCHEDULED)
++                .map(entity -> entity.toDomain().date());
++    }
++
++    @Override
++    public Optional<LocalDate> lastScheduledDate() {
++        return jpaRepository.findFirstByStatusOrderByAppointmentDateDesc(AppointmentStatus.SCHEDULED)
++                .map(entity -> entity.toDomain().date());
++    }
+ }
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/AppointmentReportController.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/AppointmentReportController.java
+new file mode 100644
+index 0000000..e365d00
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/AppointmentReportController.java
+@@ -0,0 +1,29 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import co.edu.unicauca.piedrazul.appointments.application.AppointmentReportService;
++import org.springframework.security.access.prepost.PreAuthorize;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RequestParam;
++import org.springframework.web.bind.annotation.RestController;
++
++/**
++ * RF7: datos del reporte gráfico de citas por mes y profesional. El frontend dibuja la gráfica.
++ */
++@RestController
++@RequestMapping("/api/appointments/report")
++@PreAuthorize("hasAnyRole('PROFESSIONAL', 'SCHEDULER', 'ADMIN')")
++public class AppointmentReportController {
++
++    private final AppointmentReportService appointmentReportService;
++
++    public AppointmentReportController(AppointmentReportService appointmentReportService) {
++        this.appointmentReportService = appointmentReportService;
++    }
++
++    /** Sin año, devuelve el del año actual. */
++    @GetMapping("/monthly")
++    public MonthlyReportResponse monthly(@RequestParam(required = false) Integer year) {
++        return MonthlyReportResponse.from(appointmentReportService.monthlyReport(year));
++    }
++}
+diff --git a/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MonthlyReportResponse.java b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MonthlyReportResponse.java
+new file mode 100644
+index 0000000..7787d65
+--- /dev/null
++++ b/backend/src/main/java/co/edu/unicauca/piedrazul/appointments/infrastructure/web/MonthlyReportResponse.java
+@@ -0,0 +1,32 @@
++package co.edu.unicauca.piedrazul.appointments.infrastructure.web;
++
++import co.edu.unicauca.piedrazul.appointments.application.MonthlyAppointmentsReport;
++import co.edu.unicauca.piedrazul.appointments.application.ProfessionalMonthlyCounts;
++import java.util.List;
++import java.util.UUID;
++
++/**
++ * Las listas de conteos tienen doce valores, de enero a diciembre.
++ */
++public record MonthlyReportResponse(
++        int year,
++        List<Integer> availableYears,
++        int total,
++        List<Integer> monthTotals,
++        List<ProfessionalSeriesResponse> professionals) {
++
++    public record ProfessionalSeriesResponse(UUID id, String name, String specialtyName, List<Integer> counts,
++            int total) {
++
++        static ProfessionalSeriesResponse from(ProfessionalMonthlyCounts row) {
++            return new ProfessionalSeriesResponse(row.professional().id(), row.professional().fullName(),
++                    row.professional().specialtyName(), row.counts(), row.total());
++        }
++    }
++
++    static MonthlyReportResponse from(MonthlyAppointmentsReport report) {
++        return new MonthlyReportResponse(report.year(), report.availableYears(), report.total(),
++                report.monthTotals(),
++                report.professionals().stream().map(ProfessionalSeriesResponse::from).toList());
++    }
++}
+diff --git a/backend/src/main/resources/db/migration/appointments/V4_3__index_appointments_by_date.sql b/backend/src/main/resources/db/migration/appointments/V4_3__index_appointments_by_date.sql
+new file mode 100644
+index 0000000..4da13b8
+--- /dev/null
++++ b/backend/src/main/resources/db/migration/appointments/V4_3__index_appointments_by_date.sql
+@@ -0,0 +1,2 @@
++-- RF7: el reporte mensual busca las citas de un año completo por fecha.
++CREATE INDEX ix_appointments_date ON appointments (appointment_date);
+diff --git a/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/AppointmentReportServiceTest.java b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/AppointmentReportServiceTest.java
+new file mode 100644
+index 0000000..7aa36b1
+--- /dev/null
++++ b/backend/src/test/java/co/edu/unicauca/piedrazul/appointments/application/AppointmentReportServiceTest.java
+@@ -0,0 +1,111 @@
++package co.edu.unicauca.piedrazul.appointments.application;
++
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.ANDRES;
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.CLOCK;
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.LAURA;
++import static co.edu.unicauca.piedrazul.appointments.application.BookingFixtures.professional;
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.mockito.Mockito.lenient;
++import static org.mockito.Mockito.when;
++
++import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
++import co.edu.unicauca.piedrazul.appointments.domain.AppointmentRepository;
++import co.edu.unicauca.piedrazul.professionals.ProfessionalCatalog;
++import co.edu.unicauca.piedrazul.professionals.ProfessionalSummary;
++import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.time.LocalTime;
++import java.util.List;
++import java.util.Optional;
++import java.util.UUID;
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.DisplayName;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++
++@ExtendWith(MockitoExtension.class)
++class AppointmentReportServiceTest {
++
++    // El reloj de BookingFixtures está en 2026.
++    private static final LocalDate JANUARY_FIRST = LocalDate.of(2026, 1, 1);
++    private static final LocalDate DECEMBER_LAST = LocalDate.of(2026, 12, 31);
++
++    @Mock
++    private ProfessionalCatalog professionalCatalog;
++    @Mock
++    private AppointmentRepository appointmentRepository;
++
++    private AppointmentReportService service;
++
++    @BeforeEach
++    void setUp() {
++        service = new AppointmentReportService(professionalCatalog, appointmentRepository, CLOCK);
++        lenient().when(professionalCatalog.findAll()).thenReturn(List.of(LAURA, ANDRES));
++        lenient().when(appointmentRepository.firstScheduledDate()).thenReturn(Optional.of(LocalDate.of(2025, 11, 3)));
++        lenient().when(appointmentRepository.lastScheduledDate()).thenReturn(Optional.of(LocalDate.of(2026, 10, 20)));
++    }
++
++    @Test
++    @DisplayName("Cuenta las citas de cada profesional por mes del año pedido")
++    void countsByMonthAndProfessional() {
++        when(appointmentRepository.findScheduledBetween(JANUARY_FIRST, DECEMBER_LAST)).thenReturn(List.of(
++                appointmentOf(LAURA, LocalDate.of(2026, 1, 12)),
++                appointmentOf(LAURA, LocalDate.of(2026, 1, 14)),
++                appointmentOf(LAURA, LocalDate.of(2026, 9, 30)),
++                appointmentOf(ANDRES, LocalDate.of(2026, 12, 2))));
++
++        MonthlyAppointmentsReport report = service.monthlyReport(2026);
++
++        assertThat(report.year()).isEqualTo(2026);
++        assertThat(report.professionals()).extracting(ProfessionalMonthlyCounts::professional)
++                .containsExactly(LAURA, ANDRES);
++        assertThat(report.professionals().get(0).counts()).isEqualTo(List.of(2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0));
++        assertThat(report.professionals().get(1).counts()).isEqualTo(List.of(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1));
++        assertThat(report.monthTotals()).isEqualTo(List.of(2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1));
++        assertThat(report.total()).isEqualTo(4);
++    }
++
++    @Test
++    @DisplayName("Sin año usa el actual y ofrece los años desde la primera cita")
++    void defaultsToCurrentYear() {
++        when(appointmentRepository.findScheduledBetween(JANUARY_FIRST, DECEMBER_LAST)).thenReturn(List.of());
++
++        MonthlyAppointmentsReport report = service.monthlyReport(null);
++
++        assertThat(report.year()).isEqualTo(2026);
++        assertThat(report.availableYears()).isEqualTo(List.of(2025, 2026));
++        assertThat(report.total()).isZero();
++    }
++
++    @Test
++    @DisplayName("Un profesional inactivo solo aparece si tuvo citas ese año")
++    void showsInactiveProfessionalsOnlyWithAppointments() {
++        ProfessionalSummary retired = professional("Jorge", "Castillo", "CHIROPRACTIC", "Quiropraxia", false);
++        ProfessionalSummary alsoRetired = professional("Paula", "Zambrano", "PHYSIOTHERAPY", "Fisioterapia", false);
++        when(professionalCatalog.findAll()).thenReturn(List.of(retired, LAURA, alsoRetired));
++        when(appointmentRepository.findScheduledBetween(JANUARY_FIRST, DECEMBER_LAST))
++                .thenReturn(List.of(appointmentOf(retired, LocalDate.of(2026, 3, 4))));
++
++        MonthlyAppointmentsReport report = service.monthlyReport(2026);
++
++        assertThat(report.professionals()).extracting(ProfessionalMonthlyCounts::professional)
++                .containsExactly(retired, LAURA);
++    }
++
++    @Test
++    @DisplayName("Rechaza un año fuera de rango")
++    void rejectsInvalidYear() {
++        assertThatThrownBy(() -> service.monthlyReport(1999))
++                .isInstanceOf(BusinessRuleViolationException.class)
++                .hasMessage("Elige un año válido.");
++    }
++
++    private static Appointment appointmentOf(ProfessionalSummary professional, LocalDate date) {
++        return Appointment.book(UUID.randomUUID(), UUID.randomUUID(), professional.id(), date, LocalTime.of(8, 0), 30,
++                Instant.parse("2025-12-01T15:00:00Z"));
++    }
++}
