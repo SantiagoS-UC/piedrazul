@@ -22,11 +22,12 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * HU-03: agendamiento de citas por el propio paciente.
+ * HU-03: agendamiento de citas por el propio paciente. Las consultas de profesionales, calendario y
+ * franjas también las usa el agendador cuando registra la cita de un paciente.
  */
 @RestController
 @RequestMapping("/api/appointments")
-@PreAuthorize("hasRole('PATIENT')")
+@PreAuthorize("hasAnyRole('PATIENT', 'SCHEDULER')")
 public class BookingController {
 
     private final BookingQueryService bookingQueryService;
@@ -59,6 +60,7 @@ public class BookingController {
     // El paciente sale del token y no de la petición: nadie puede agendar a nombre de otro.
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('PATIENT')")
     public BookedAppointmentResponse book(@AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody BookAppointmentRequest request) {
         BookAppointmentCommand command = new BookAppointmentCommand(UUID.fromString(jwt.getSubject()),
