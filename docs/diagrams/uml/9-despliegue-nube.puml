@@ -1,0 +1,45 @@
+@startuml uml-5-despliegue-nube
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #444444
+skinparam ArrowFontColor #444444
+skinparam ArrowFontSize 11
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam NodeBackgroundColor white
+skinparam NodeBorderColor #1168BD
+skinparam NodeFontColor #1168BD
+skinparam ArtifactBackgroundColor white
+skinparam ArtifactBorderColor #1168BD
+skinparam ArtifactFontColor #1168BD
+skinparam DatabaseBackgroundColor white
+skinparam DatabaseBorderColor #1168BD
+skinparam DatabaseFontColor #1168BD
+title Despliegue en la nube\n<size:12><color:#666666>Modelo 4+1, vista física</color></size>
+
+node "Navegador del usuario" as navegador
+
+node "Render (Virginia, plan gratuito)" as render {
+  node "Sitio estático\npiedrazul-web.onrender.com" as web {
+    artifact "Aplicación web\n(build de Angular)" as spa
+  }
+  node "Servicio web Docker\npiedrazul-api.onrender.com" as apiNode {
+    artifact "API de Piedrazul\n(Spring Boot, Java 21)" as api
+  }
+}
+
+node "Neon (AWS us-east-1)" as neon {
+  database "PostgreSQL\nneondb" as db
+}
+
+node "Cloud-IAM" as cloudiam {
+  node "Keycloak\nlemur-0.cloud-iam.com\nrealm piedrazul" as keycloak
+}
+
+navegador --> web : HTTPS
+navegador --> api : HTTPS /api\n(token JWT)
+navegador --> keycloak : HTTPS\n(OpenID Connect, PKCE)
+api --> db : JDBC + TLS
+api --> keycloak : HTTPS\n(llaves públicas, Admin API)
+@enduml

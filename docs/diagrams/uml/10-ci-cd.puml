@@ -1,0 +1,43 @@
+@startuml ci-cd
+!pragma layout smetana
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #444444
+skinparam TitleFontSize 18
+skinparam TitleFontColor #333333
+skinparam ActivityBackgroundColor white
+skinparam ActivityBorderColor #1168BD
+skinparam ActivityFontColor #333333
+skinparam SwimlaneBorderColor #999999
+skinparam SwimlaneTitleFontColor #1168BD
+title Esquema de CI/CD\n<size:12><color:#666666>GitHub Actions y Render</color></size>
+
+|Desarrollador|
+start
+:Push a una rama feature/...;
+:Abre un PR hacia develop;
+|GitHub Actions: CI|
+fork
+  :Backend: ./mvnw verify\n(todas las pruebas\nautomáticas);
+fork again
+  :Frontend: npm ci, ng test\ny ng build;
+end fork
+if (¿Todo en verde?) then (sí)
+  |Desarrollador|
+  :Merge a develop;
+  :Al cerrar el corte,\nPR de develop a main;
+  |GitHub Actions: CD|
+  :Vuelve a correr la CI completa;
+  :Llama a los deploy hooks\nde Render;
+  |Render|
+  :Construye la imagen Docker del backend\ny el build del frontend;
+  :Publica la nueva versión;
+  |GitHub Actions: CD|
+  :Prueba de humo:\n/actuator/health en UP;
+  stop
+else (no)
+  |Desarrollador|
+  :Corrige y vuelve a subir;
+  stop
+endif
+@enduml

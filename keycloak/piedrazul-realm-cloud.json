@@ -1,0 +1,216 @@
+{
+  "roles": {
+    "realm": [
+      {
+        "name": "PATIENT",
+        "description": "Paciente: agenda sus citas"
+      },
+      {
+        "name": "SCHEDULER",
+        "description": "Agendador: lista, exporta y consulta citas"
+      },
+      {
+        "name": "PROFESSIONAL",
+        "description": "Médico o terapista: exporta su agenda y consulta historiales"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Administrador: configura el agendamiento"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "piedrazul-web",
+      "name": "Piedrazul (aplicación web)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "https://piedrazul-web.onrender.com/*"
+      ],
+      "webOrigins": [
+        "https://piedrazul-web.onrender.com"
+      ],
+      "rootUrl": "https://piedrazul-web.onrender.com",
+      "baseUrl": "/",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://piedrazul-web.onrender.com/*"
+      }
+    },
+    {
+      "clientId": "piedrazul-backend",
+      "name": "Piedrazul (backend)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    },
+    {
+      "clientId": "piedrazul-dev-tools",
+      "name": "Pruebas de desarrollo (Postman, IntelliJ, ZAP)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "username": "admin@gmail.com",
+      "email": "admin@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Administrador",
+      "lastName": "Piedrazul",
+      "realmRoles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "username": "agendador@gmail.com",
+      "email": "agendador@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Agendador",
+      "lastName": "Piedrazul",
+      "realmRoles": [
+        "SCHEDULER"
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000101",
+      "username": "paciente1@gmail.com",
+      "email": "paciente1@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Ana María",
+      "lastName": "Gómez Ruiz",
+      "realmRoles": [
+        "PATIENT"
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000102",
+      "username": "paciente2@gmail.com",
+      "email": "paciente2@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Carlos Andrés",
+      "lastName": "Muñoz Pérez",
+      "realmRoles": [
+        "PATIENT"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000001",
+      "username": "laura.martinez@gmail.com",
+      "email": "laura.martinez@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Laura",
+      "lastName": "Martínez",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000002",
+      "username": "andres.vargas@gmail.com",
+      "email": "andres.vargas@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Andrés",
+      "lastName": "Vargas",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000003",
+      "username": "diana.rojas@gmail.com",
+      "email": "diana.rojas@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Diana",
+      "lastName": "Rojas",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000004",
+      "username": "jorge.castillo@gmail.com",
+      "email": "jorge.castillo@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Jorge",
+      "lastName": "Castillo",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000005",
+      "username": "natalia.guzman@gmail.com",
+      "email": "natalia.guzman@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Natalia",
+      "lastName": "Guzmán",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000006",
+      "username": "camilo.benavides@gmail.com",
+      "email": "camilo.benavides@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Camilo",
+      "lastName": "Benavides",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000007",
+      "username": "paula.zambrano@gmail.com",
+      "email": "paula.zambrano@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Paula",
+      "lastName": "Zambrano",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000008",
+      "username": "mauricio.lopez@gmail.com",
+      "email": "mauricio.lopez@gmail.com",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Mauricio",
+      "lastName": "López",
+      "realmRoles": [
+        "PROFESSIONAL"
+      ]
+    }
+  ]
+}

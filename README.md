@@ -1,5 +1,7 @@
 # Piedrazul
 
+[![CI](https://github.com/SantiagoS-UC/piedrazul/actions/workflows/ci.yml/badge.svg)](https://github.com/SantiagoS-UC/piedrazul/actions/workflows/ci.yml)
+
 Sistema de reserva de citas médicas para la clínica Piedrazul. Proyecto del curso Ingeniería de
 Software III, Universidad del Cauca, 2026.2.
 
@@ -76,6 +78,23 @@ Postman de `docs/postman/`.
 Si se cambia `piedrazul-realm.json`, hay que borrar el volumen para que se vuelva a importar:
 `docker compose down` y luego `docker volume rm piedrazul_keycloak-data` (se pierden los
 usuarios creados a mano).
+
+## Integración continua
+
+El workflow `.github/workflows/ci.yml` corre en GitHub Actions en cada PR y en cada push a `develop`.
+Tiene dos trabajos en paralelo:
+
+- **Backend:** `./mvnw verify` con Java 21 (pruebas unitarias y `ModularityTest`).
+- **Frontend:** `npm ci`, `ng test` y `ng build` de producción.
+
+Los resultados se ven en la pestaña *Actions* del repositorio y en cada PR.
+
+## Despliegue
+
+La aplicación está publicada en **https://piedrazul-web.onrender.com** (Render, Neon y
+Cloud-IAM, todo en planes gratuitos). Cada merge a `main` la vuelve a desplegar con el workflow
+`.github/workflows/cd.yml`, después de correr todas las pruebas. El diseño del despliegue y del
+esquema de CI/CD está en [docs/despliegue.md](docs/despliegue.md).
 
 ## Pruebas
 
