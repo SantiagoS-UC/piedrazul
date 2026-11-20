@@ -1,0 +1,840 @@
+diff --git a/frontend/src/app/app.routes.ts b/frontend/src/app/app.routes.ts
+index 2cc799f..19ea7de 100644
+--- a/frontend/src/app/app.routes.ts
++++ b/frontend/src/app/app.routes.ts
+@@ -29,6 +29,13 @@ export const routes: Routes = [
+         loadComponent: () =>
+           import('./features/patient/book-appointment-page/book-appointment-page').then((m) => m.BookAppointmentPage),
+       },
++      {
++        path: 'patient/appointments',
++        title: 'Mis citas | Piedrazul',
++        canActivate: [roleGuard('PATIENT')],
++        loadComponent: () =>
++          import('./features/patient/my-appointments-page/my-appointments-page').then((m) => m.MyAppointmentsPage),
++      },
+       {
+         path: 'scheduler/book-appointment',
+         title: 'Agendar cita | Piedrazul',
+diff --git a/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.html b/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.html
+index d93f8dc..d49dc36 100644
+--- a/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.html
++++ b/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.html
+@@ -31,6 +31,9 @@
+       [patientName]="patientName()"
+     />
+     <div class="actions end">
++      @if (!forStaff) {
++        <a appButton variant="secondary" routerLink="/patient/appointments">Ver mis citas</a>
++      }
+       <button appButton type="button" (click)="startOver()">Agendar otra cita</button>
+     </div>
+   </section>
+diff --git a/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.ts b/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.ts
+index cdc0b88..d32decc 100644
+--- a/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.ts
++++ b/frontend/src/app/features/patient/book-appointment-page/book-appointment-page.ts
+@@ -10,6 +10,7 @@ import {
+   signal,
+   viewChild,
+ } from '@angular/core';
++import { RouterLink } from '@angular/router';
+ import { finalize, Observable } from 'rxjs';
+ import { AuthSession } from '../../../core/auth/auth-session';
+ import { toApiError } from '../../../core/http/api-error';
+@@ -60,6 +61,7 @@ const SPECIALTY_DETAIL: Record<SpecialtyCode, string> = {
+     MonthCalendar,
+     PageHeader,
+     PatientPicker,
++    RouterLink,
+     SlotPicker,
+     StepIndicator,
+   ],
+diff --git a/frontend/src/app/features/patient/my-appointments-api.spec.ts b/frontend/src/app/features/patient/my-appointments-api.spec.ts
+new file mode 100644
+index 0000000..0e7017e
+--- /dev/null
++++ b/frontend/src/app/features/patient/my-appointments-api.spec.ts
+@@ -0,0 +1,38 @@
++import { MyAppointment, splitAppointments } from './my-appointments-api';
++
++function appointment(id: string, date: string, time: string, status: MyAppointment['status']): MyAppointment {
++  return {
++    id,
++    date,
++    time,
++    durationMinutes: 30,
++    professionalName: 'Laura Martínez',
++    specialtyName: 'Medicina general',
++    status,
++    cancellable: status === 'UPCOMING',
++    cancellationReason: status === 'CANCELLED' ? 'Tengo un viaje de trabajo' : null,
++  };
++}
++
++describe('Mis citas', () => {
++  it('ordena las próximas de la más cercana a la más lejana', () => {
++    const { upcoming } = splitAppointments([
++      appointment('c', '2026-10-14', '08:00', 'UPCOMING'),
++      appointment('b', '2026-10-07', '10:00', 'UPCOMING'),
++      appointment('a', '2026-10-07', '08:30', 'UPCOMING'),
++    ]);
++
++    expect(upcoming.map((item) => item.id)).toEqual(['a', 'b', 'c']);
++  });
++
++  it('deja en el historial las pasadas y las canceladas, en el orden de la API', () => {
++    const { upcoming, others } = splitAppointments([
++      appointment('cancelada', '2026-10-20', '08:00', 'CANCELLED'),
++      appointment('proxima', '2026-10-07', '08:00', 'UPCOMING'),
++      appointment('pasada', '2026-09-01', '09:00', 'PAST'),
++    ]);
++
++    expect(upcoming.map((item) => item.id)).toEqual(['proxima']);
++    expect(others.map((item) => item.id)).toEqual(['cancelada', 'pasada']);
++  });
++});
+diff --git a/frontend/src/app/features/patient/my-appointments-api.ts b/frontend/src/app/features/patient/my-appointments-api.ts
+new file mode 100644
+index 0000000..1265437
+--- /dev/null
++++ b/frontend/src/app/features/patient/my-appointments-api.ts
+@@ -0,0 +1,56 @@
++import { HttpClient } from '@angular/common/http';
++import { inject, Injectable } from '@angular/core';
++import { Observable } from 'rxjs';
++
++export type MyAppointmentStatus = 'UPCOMING' | 'PAST' | 'CANCELLED';
++
++export interface MyAppointment {
++  id: string;
++  /** aaaa-mm-dd */
++  date: string;
++  /** HH:mm */
++  time: string;
++  durationMinutes: number;
++  professionalName: string;
++  specialtyName: string;
++  status: MyAppointmentStatus;
++  /** Si todavía se puede cancelar: mínimo dos días antes de la cita. */
++  cancellable: boolean;
++  cancellationReason: string | null;
++}
++
++/** Mismas reglas que Appointment en el backend. */
++export const CANCELLATION_RULES = {
++  minDaysBefore: 2,
++  reasonMinLength: 10,
++  reasonMaxLength: 500,
++};
++
++@Injectable({ providedIn: 'root' })
++export class MyAppointmentsApi {
++  private readonly http = inject(HttpClient);
++
++  /** De la más reciente a la más antigua, incluidas las canceladas. */
++  getMine(): Observable<MyAppointment[]> {
++    return this.http.get<MyAppointment[]>('/api/appointments/mine');
++  }
++
++  cancel(appointmentId: string, reason: string): Observable<MyAppointment> {
++    return this.http.post<MyAppointment>(`/api/appointments/mine/${appointmentId}/cancel`, { reason });
++  }
++}
++
++/**
++ * Próximas primero y de la más cercana a la más lejana; el resto (pasadas y canceladas) de la más
++ * reciente a la más antigua, como las entrega la API.
++ */
++export function splitAppointments(appointments: MyAppointment[]): {
++  upcoming: MyAppointment[];
++  others: MyAppointment[];
++} {
++  const upcoming = appointments
++    .filter((appointment) => appointment.status === 'UPCOMING')
++    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
++  const others = appointments.filter((appointment) => appointment.status !== 'UPCOMING');
++  return { upcoming, others };
++}
+diff --git a/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.html b/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.html
+new file mode 100644
+index 0000000..3ace867
+--- /dev/null
++++ b/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.html
+@@ -0,0 +1,75 @@
++<app-page-header
++  heading="Mis citas"
++  description="Consulta tus citas y cancela las que no puedas atender, con mínimo dos días de anticipación."
++/>
++
++@if (errorMessage()) {
++  <app-alert type="error">{{ errorMessage() }}</app-alert>
++}
++
++@if (successMessage()) {
++  <app-alert type="success">{{ successMessage() }}</app-alert>
++}
++
++@if (loading() && appointments().length === 0) {
++  <p class="loading"><app-spinner /> Cargando tus citas…</p>
++} @else {
++  <section class="card" aria-labelledby="upcoming-title">
++    <h2 id="upcoming-title">Próximas citas</h2>
++    @for (appointment of groups().upcoming; track appointment.id) {
++      <article class="appointment">
++        <span class="icon"><app-icon name="calendar" /></span>
++        <div class="details">
++          <p class="when">{{ weekdayDate(appointment.date) }} · {{ formatTime(appointment.time) }}</p>
++          <p class="who">{{ appointment.professionalName }} · {{ appointment.specialtyName }}</p>
++          @if (!appointment.cancellable) {
++            <p class="hint">
++              Faltan menos de {{ rules.minDaysBefore }} días: ya no se puede cancelar en línea. Si no puedes asistir,
++              comunícate con la clínica.
++            </p>
++          }
++        </div>
++        @if (appointment.cancellable) {
++          <button appButton variant="secondary" type="button" (click)="startCancel(appointment)">
++            Cancelar cita
++          </button>
++        }
++      </article>
++    } @empty {
++      <div class="empty">
++        <p>No tienes citas próximas.</p>
++        <a appButton routerLink="/patient/book-appointment">Agendar una cita</a>
++      </div>
++    }
++  </section>
++
++  @if (groups().others.length > 0) {
++    <section class="card" aria-labelledby="history-title">
++      <h2 id="history-title">Citas anteriores y canceladas</h2>
++      <ul class="history">
++        @for (appointment of groups().others; track appointment.id) {
++          <li [class.cancelled]="appointment.status === 'CANCELLED'">
++            <div>
++              <p class="when">{{ longDate(appointment.date) }} · {{ formatTime(appointment.time) }}</p>
++              <p class="who">{{ appointment.professionalName }} · {{ appointment.specialtyName }}</p>
++              @if (appointment.cancellationReason) {
++                <p class="reason">Motivo: {{ appointment.cancellationReason }}</p>
++              }
++            </div>
++            @if (appointment.status === 'CANCELLED') {
++              <app-badge tone="neutral">Cancelada</app-badge>
++            } @else {
++              <app-badge tone="neutral">Pasada</app-badge>
++            }
++          </li>
++        }
++      </ul>
++    </section>
++  }
++}
++
++<app-cancel-dialog
++  [appointment]="cancelling()"
++  (cancelled)="finishCancel($event)"
++  (closed)="cancelling.set(null)"
++/>
+diff --git a/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.scss b/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.scss
+new file mode 100644
+index 0000000..bb2db0e
+--- /dev/null
++++ b/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.scss
+@@ -0,0 +1,119 @@
++:host {
++  display: flex;
++  flex-direction: column;
++  gap: 1.5rem;
++  max-width: 56rem;
++}
++
++.card {
++  display: flex;
++  flex-direction: column;
++  gap: 1rem;
++  padding: 1.75rem 2rem;
++  background: var(--pz-color-surface);
++  border-radius: var(--pz-radius-lg);
++  box-shadow: var(--pz-shadow-card);
++}
++
++h2 {
++  font-size: 1.3rem;
++}
++
++.appointment {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 1rem;
++  align-items: center;
++  padding: 1rem 1.25rem;
++  border: 1px solid var(--pz-color-border);
++  border-radius: var(--pz-radius-md);
++}
++
++.icon {
++  display: inline-flex;
++  padding: 0.6rem;
++  color: var(--pz-color-primary);
++  background: var(--pz-color-primary-soft);
++  border-radius: var(--pz-radius-sm);
++}
++
++.details {
++  flex: 1;
++  min-width: 14rem;
++}
++
++.when {
++  font-weight: 700;
++}
++
++.when::first-letter {
++  text-transform: uppercase;
++}
++
++.who,
++.hint,
++.reason,
++.loading,
++.empty p {
++  color: var(--pz-color-text-muted);
++}
++
++.hint {
++  margin-top: 0.35rem;
++  font-size: 0.9rem;
++}
++
++.empty {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 1rem;
++  align-items: center;
++  justify-content: space-between;
++}
++
++.history {
++  display: flex;
++  flex-direction: column;
++  padding: 0;
++  margin: 0;
++  list-style: none;
++}
++
++.history li {
++  display: flex;
++  gap: 1rem;
++  align-items: flex-start;
++  justify-content: space-between;
++  padding: 0.9rem 0;
++  border-bottom: 1px solid var(--pz-color-border);
++}
++
++.history li:last-child {
++  border-bottom: none;
++}
++
++.history .cancelled .when {
++  text-decoration: line-through;
++}
++
++.reason {
++  margin-top: 0.25rem;
++  font-size: 0.9rem;
++  font-style: italic;
++}
++
++.loading {
++  display: flex;
++  gap: 0.75rem;
++  align-items: center;
++}
++
++@media (width < 600px) {
++  .card {
++    padding: 1.25rem;
++  }
++
++  .appointment button {
++    width: 100%;
++  }
++}
+diff --git a/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.ts b/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.ts
+new file mode 100644
+index 0000000..be2dd72
+--- /dev/null
++++ b/frontend/src/app/features/patient/my-appointments-page/my-appointments-page.ts
+@@ -0,0 +1,69 @@
++import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
++import { RouterLink } from '@angular/router';
++import { finalize } from 'rxjs';
++import { toApiError } from '../../../core/http/api-error';
++import { formatLongDate, formatTime, formatWeekdayDate, parseIsoDate } from '../../../shared/format/date-time-format';
++import { Badge } from '../../../shared/ui/atoms/badge/badge';
++import { Button } from '../../../shared/ui/atoms/button/button';
++import { Icon } from '../../../shared/ui/atoms/icon/icon';
++import { Spinner } from '../../../shared/ui/atoms/spinner/spinner';
++import { Alert } from '../../../shared/ui/molecules/alert/alert';
++import { PageHeader } from '../../../shared/ui/molecules/page-header/page-header';
++import { CANCELLATION_RULES, MyAppointment, MyAppointmentsApi, splitAppointments } from '../my-appointments-api';
++import { CancelDialog } from '../organisms/cancel-dialog/cancel-dialog';
++
++/**
++ * El paciente consulta sus citas y cancela las próximas (RF6).
++ */
++@Component({
++  selector: 'app-my-appointments-page',
++  imports: [Alert, Badge, Button, CancelDialog, Icon, PageHeader, RouterLink, Spinner],
++  templateUrl: './my-appointments-page.html',
++  styleUrl: './my-appointments-page.scss',
++  changeDetection: ChangeDetectionStrategy.OnPush,
++})
++export class MyAppointmentsPage {
++  private readonly api = inject(MyAppointmentsApi);
++
++  protected readonly rules = CANCELLATION_RULES;
++  protected readonly formatTime = formatTime;
++  protected readonly weekdayDate = (iso: string) => formatWeekdayDate(parseIsoDate(iso));
++  protected readonly longDate = (iso: string) => formatLongDate(parseIsoDate(iso));
++
++  protected readonly appointments = signal<MyAppointment[]>([]);
++  protected readonly loading = signal(true);
++  protected readonly errorMessage = signal<string | null>(null);
++  protected readonly successMessage = signal<string | null>(null);
++  protected readonly cancelling = signal<MyAppointment | null>(null);
++
++  protected readonly groups = computed(() => splitAppointments(this.appointments()));
++
++  constructor() {
++    this.load();
++  }
++
++  protected startCancel(appointment: MyAppointment): void {
++    this.successMessage.set(null);
++    this.cancelling.set(appointment);
++  }
++
++  protected finishCancel(cancelled: MyAppointment): void {
++    this.successMessage.set(
++      `Cancelaste tu cita del ${this.weekdayDate(cancelled.date)} a las ${formatTime(cancelled.time)}. ` +
++        'El horario quedó libre para otro paciente.',
++    );
++    this.load();
++  }
++
++  private load(): void {
++    this.loading.set(true);
++    this.errorMessage.set(null);
++    this.api
++      .getMine()
++      .pipe(finalize(() => this.loading.set(false)))
++      .subscribe({
++        next: (appointments) => this.appointments.set(appointments),
++        error: (error: unknown) => this.errorMessage.set(toApiError(error).message),
++      });
++  }
++}
+diff --git a/frontend/src/app/features/patient/organisms/cancel-dialog/cancel-dialog.ts b/frontend/src/app/features/patient/organisms/cancel-dialog/cancel-dialog.ts
+new file mode 100644
+index 0000000..d262fee
+--- /dev/null
++++ b/frontend/src/app/features/patient/organisms/cancel-dialog/cancel-dialog.ts
+@@ -0,0 +1,225 @@
++import {
++  ChangeDetectionStrategy,
++  Component,
++  computed,
++  effect,
++  ElementRef,
++  inject,
++  input,
++  output,
++  signal,
++  untracked,
++  viewChild,
++} from '@angular/core';
++import { toSignal } from '@angular/core/rxjs-interop';
++import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
++import { finalize } from 'rxjs';
++import { toApiError } from '../../../../core/http/api-error';
++import { formatTime, formatWeekdayDate, parseIsoDate } from '../../../../shared/format/date-time-format';
++import { Button } from '../../../../shared/ui/atoms/button/button';
++import { FieldControl } from '../../../../shared/ui/atoms/field-control/field-control';
++import { Alert } from '../../../../shared/ui/molecules/alert/alert';
++import { describedBy, FormField } from '../../../../shared/ui/molecules/form-field/form-field';
++import { CANCELLATION_RULES, MyAppointment, MyAppointmentsApi } from '../../my-appointments-api';
++
++/**
++ * RF6: confirma la cancelación de una cita y pide el motivo. Usa el diálogo nativo del navegador,
++ * que mantiene el foco dentro y se cierra con Escape.
++ */
++@Component({
++  selector: 'app-cancel-dialog',
++  imports: [ReactiveFormsModule, Alert, Button, FieldControl, FormField],
++  template: `
++    <dialog #dialog aria-labelledby="cancel-title" (close)="closed.emit()">
++      <h2 id="cancel-title">Cancelar cita</h2>
++      @if (appointment(); as current) {
++        <p class="summary">
++          {{ current.specialtyName }} con {{ current.professionalName }}, el {{ when() }}.
++        </p>
++      }
++      <p class="note">
++        Al cancelar, el horario queda libre para otro paciente. Esta acción no se puede deshacer.
++      </p>
++
++      <form (ngSubmit)="confirm()" novalidate>
++        <app-form-field
++          label="¿Por qué cancelas la cita?"
++          fieldId="cancel-reason"
++          required
++          [hint]="hint"
++          [error]="reasonError()"
++        >
++          <textarea
++            appFieldControl
++            id="cancel-reason"
++            rows="4"
++            [attr.maxlength]="rules.reasonMaxLength"
++            [formControl]="reason"
++            [invalid]="!!reasonError()"
++            [describedBy]="describedBy('cancel-reason', true)"
++          ></textarea>
++        </app-form-field>
++        <p class="counter" aria-live="polite">{{ length() }} / {{ rules.reasonMaxLength }}</p>
++
++        @if (errorMessage()) {
++          <app-alert type="error">{{ errorMessage() }}</app-alert>
++        }
++
++        <div class="actions">
++          <button appButton variant="secondary" type="button" [disabled]="saving()" (click)="dialog.close()">
++            Volver
++          </button>
++          <button appButton variant="danger" type="submit" [loading]="saving()" [disabled]="saving()">
++            Cancelar cita
++          </button>
++        </div>
++      </form>
++    </dialog>
++  `,
++  styles: `
++    dialog {
++      width: min(34rem, calc(100% - 2rem));
++      padding: 2rem;
++      border: none;
++      border-radius: var(--pz-radius-lg);
++      box-shadow: var(--pz-shadow-card);
++
++      &::backdrop {
++        background: rgb(15 23 42 / 45%);
++      }
++    }
++
++    h2 {
++      margin-bottom: 0.75rem;
++      font-size: 1.5rem;
++    }
++
++    .summary {
++      font-weight: 600;
++    }
++
++    .note,
++    .counter {
++      color: var(--pz-color-text-muted);
++    }
++
++    .note {
++      margin: 0.5rem 0 1.25rem;
++    }
++
++    textarea {
++      min-height: 7rem;
++      padding: 0.75rem 1rem;
++      resize: vertical;
++    }
++
++    .counter {
++      margin-top: -0.5rem;
++      font-size: 0.85rem;
++      text-align: right;
++    }
++
++    .actions {
++      display: flex;
++      flex-wrap: wrap;
++      gap: 1rem;
++      justify-content: flex-end;
++      margin-top: 1.25rem;
++    }
++  `,
++  changeDetection: ChangeDetectionStrategy.OnPush,
++})
++export class CancelDialog {
++  private readonly api = inject(MyAppointmentsApi);
++  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
++
++  /** La cita que se cancela; al recibir una, el diálogo se abre. */
++  readonly appointment = input<MyAppointment | null>(null);
++  readonly cancelled = output<MyAppointment>();
++  readonly closed = output<void>();
++
++  protected readonly rules = CANCELLATION_RULES;
++  protected readonly describedBy = describedBy;
++  protected readonly hint = `Escribe al menos ${CANCELLATION_RULES.reasonMinLength} caracteres. Lo verá la clínica.`;
++  protected readonly reason = new FormControl('', {
++    nonNullable: true,
++    validators: [Validators.required, Validators.maxLength(CANCELLATION_RULES.reasonMaxLength)],
++  });
++  private readonly reasonValue = toSignal(this.reason.valueChanges, { initialValue: '' });
++
++  protected readonly submitted = signal(false);
++  protected readonly saving = signal(false);
++  protected readonly errorMessage = signal<string | null>(null);
++  /** Error que devolvió el servidor para el campo, si lo hay. */
++  private readonly serverReasonError = signal<string | null>(null);
++
++  protected readonly length = computed(() => this.reasonValue().length);
++  protected readonly when = computed(() => {
++    const appointment = this.appointment();
++    return appointment
++      ? `${formatWeekdayDate(parseIsoDate(appointment.date))} a las ${formatTime(appointment.time)}`
++      : '';
++  });
++  protected readonly reasonError = computed(() => {
++    const server = this.serverReasonError();
++    if (server) {
++      return server;
++    }
++    if (!this.submitted()) {
++      return null;
++    }
++    const text = this.reasonValue().trim();
++    if (!text) {
++      return 'Escribe el motivo de la cancelación.';
++    }
++    return text.length < CANCELLATION_RULES.reasonMinLength
++      ? `Cuéntanos un poco más: el motivo debe tener al menos ${CANCELLATION_RULES.reasonMinLength} caracteres.`
++      : null;
++  });
++
++  constructor() {
++    effect(() => {
++      const appointment = this.appointment();
++      const dialog = this.dialog().nativeElement;
++      if (appointment && !dialog.open) {
++        untracked(() => this.reset());
++        dialog.showModal();
++      }
++    });
++  }
++
++  protected confirm(): void {
++    const appointment = this.appointment();
++    this.submitted.set(true);
++    this.serverReasonError.set(null);
++    if (!appointment || this.reasonError()) {
++      return;
++    }
++    this.saving.set(true);
++    this.errorMessage.set(null);
++    this.api
++      .cancel(appointment.id, this.reason.value.trim())
++      .pipe(finalize(() => this.saving.set(false)))
++      .subscribe({
++        next: (result) => {
++          this.cancelled.emit(result);
++          this.dialog().nativeElement.close();
++        },
++        error: (error: unknown) => {
++          const apiError = toApiError(error);
++          if (apiError.fieldErrors['reason']) {
++            this.serverReasonError.set(apiError.fieldErrors['reason']);
++          } else {
++            this.errorMessage.set(apiError.message);
++          }
++        },
++      });
++  }
++
++  private reset(): void {
++    this.reason.reset('');
++    this.submitted.set(false);
++    this.errorMessage.set(null);
++    this.serverReasonError.set(null);
++  }
++}
+diff --git a/frontend/src/app/features/staff/organisms/history-table/history-table.ts b/frontend/src/app/features/staff/organisms/history-table/history-table.ts
+index f0e37aa..6cbdc81 100644
+--- a/frontend/src/app/features/staff/organisms/history-table/history-table.ts
++++ b/frontend/src/app/features/staff/organisms/history-table/history-table.ts
+@@ -21,16 +21,23 @@ import { HistoryAppointment } from '../../patient-history-api';
+         </thead>
+         <tbody>
+           @for (appointment of appointments(); track appointment.id) {
+-            <tr [class.past]="appointment.status === 'PAST'">
++            <tr [class.past]="appointment.status !== 'UPCOMING'">
+               <td class="date">{{ date(appointment.date) }}</td>
+               <td class="time">{{ time(appointment.time) }}</td>
+               <td class="professional">{{ appointment.professionalName }}</td>
+               <td>{{ appointment.specialtyName }}</td>
+               <td>
+-                @if (appointment.status === 'UPCOMING') {
+-                  <app-badge>Próxima</app-badge>
+-                } @else {
+-                  <app-badge tone="neutral">Pasada</app-badge>
++                @switch (appointment.status) {
++                  @case ('UPCOMING') {
++                    <app-badge>Próxima</app-badge>
++                  }
++                  @case ('CANCELLED') {
++                    <app-badge tone="neutral">Cancelada</app-badge>
++                    <p class="reason">{{ appointment.cancellationReason }}</p>
++                  }
++                  @default {
++                    <app-badge tone="neutral">Pasada</app-badge>
++                  }
+                 }
+               </td>
+             </tr>
+@@ -78,6 +85,14 @@ import { HistoryAppointment } from '../../patient-history-api';
+       white-space: nowrap;
+     }
+ 
++    .reason {
++      max-width: 18rem;
++      margin-top: 0.25rem;
++      font-size: 0.85rem;
++      font-style: italic;
++      color: var(--pz-color-text-muted);
++    }
++
+     .date,
+     .professional {
+       font-weight: 600;
+diff --git a/frontend/src/app/features/staff/patient-history-api.ts b/frontend/src/app/features/staff/patient-history-api.ts
+index 8f6e9f5..7b0721a 100644
+--- a/frontend/src/app/features/staff/patient-history-api.ts
++++ b/frontend/src/app/features/staff/patient-history-api.ts
+@@ -14,7 +14,7 @@ export interface HistoryPatient extends PatientMatch {
+   phone: string;
+ }
+ 
+-export type HistoryStatus = 'UPCOMING' | 'PAST';
++export type HistoryStatus = 'UPCOMING' | 'PAST' | 'CANCELLED';
+ 
+ export interface HistoryAppointment {
+   id: string;
+@@ -26,6 +26,8 @@ export interface HistoryAppointment {
+   professionalName: string;
+   specialtyName: string;
+   status: HistoryStatus;
++  /** Motivo que dejó el paciente al cancelar; null si no se canceló. */
++  cancellationReason: string | null;
+ }
+ 
+ export interface PatientHistory {
+@@ -33,6 +35,7 @@ export interface PatientHistory {
+   total: number;
+   upcoming: number;
+   past: number;
++  cancelled: number;
+   /** De la más reciente a la más antigua. */
+   appointments: HistoryAppointment[];
+ }
+diff --git a/frontend/src/app/features/staff/patient-history-page/patient-history-page.html b/frontend/src/app/features/staff/patient-history-page/patient-history-page.html
+index 3125b04..cfc3fbc 100644
+--- a/frontend/src/app/features/staff/patient-history-page/patient-history-page.html
++++ b/frontend/src/app/features/staff/patient-history-page/patient-history-page.html
+@@ -57,6 +57,10 @@
+         <dt>Pasadas</dt>
+         <dd>{{ result.past }}</dd>
+       </div>
++      <div class="stat">
++        <dt>Canceladas</dt>
++        <dd>{{ result.cancelled }}</dd>
++      </div>
+     </dl>
+   </section>
+ 
+diff --git a/frontend/src/app/shared/ui/atoms/button/button.scss b/frontend/src/app/shared/ui/atoms/button/button.scss
+index 01109a8..82b31e2 100644
+--- a/frontend/src/app/shared/ui/atoms/button/button.scss
++++ b/frontend/src/app/shared/ui/atoms/button/button.scss
+@@ -47,6 +47,16 @@
+   border-color: #e2e8f0;
+ }
+ 
++:host(.pz-button--danger) {
++  background: var(--pz-color-danger);
++  border-color: var(--pz-color-danger);
++}
++
++:host(.pz-button--danger:hover:not(:disabled)) {
++  background: #991b1b;
++  border-color: #991b1b;
++}
++
+ :host(.pz-button--block) {
+   width: 100%;
+ }
+diff --git a/frontend/src/app/shared/ui/atoms/button/button.ts b/frontend/src/app/shared/ui/atoms/button/button.ts
+index b759011..e1f4c6b 100644
+--- a/frontend/src/app/shared/ui/atoms/button/button.ts
++++ b/frontend/src/app/shared/ui/atoms/button/button.ts
+@@ -1,7 +1,8 @@
+ import { booleanAttribute, ChangeDetectionStrategy, Component, input } from '@angular/core';
+ import { Spinner } from '../spinner/spinner';
+ 
+-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
++/** danger: acciones que no se pueden deshacer, como cancelar una cita. */
++export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+ 
+ /**
+  * Se aplica sobre un botón o enlace nativo para conservar su accesibilidad (foco, teclado,
+@@ -21,6 +22,7 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+     class: 'pz-button',
+     '[class.pz-button--secondary]': "variant() === 'secondary'",
+     '[class.pz-button--ghost]': "variant() === 'ghost'",
++    '[class.pz-button--danger]': "variant() === 'danger'",
+     '[class.pz-button--block]': 'block()',
+     '[attr.aria-busy]': 'loading() || null',
+   },
+diff --git a/frontend/src/app/shared/ui/atoms/field-control/field-control.ts b/frontend/src/app/shared/ui/atoms/field-control/field-control.ts
+index bb312cc..39e18c9 100644
+--- a/frontend/src/app/shared/ui/atoms/field-control/field-control.ts
++++ b/frontend/src/app/shared/ui/atoms/field-control/field-control.ts
+@@ -1,11 +1,11 @@
+ import { Directive, input } from '@angular/core';
+ 
+ /**
+- * Da a los campos nativos (input, select) el estilo común y los atributos de accesibilidad que
++ * Da a los campos nativos (input, select, textarea) el estilo común y los atributos de accesibilidad que
+  * conectan el campo con su ayuda y su mensaje de error.
+  */
+ @Directive({
+-  selector: 'input[appFieldControl], select[appFieldControl]',
++  selector: 'input[appFieldControl], select[appFieldControl], textarea[appFieldControl]',
+   host: {
+     class: 'pz-control',
+     '[attr.aria-invalid]': 'invalid() || null',
+diff --git a/frontend/src/app/shared/ui/templates/app-shell/navigation.ts b/frontend/src/app/shared/ui/templates/app-shell/navigation.ts
+index d7a3cbc..0c0026e 100644
+--- a/frontend/src/app/shared/ui/templates/app-shell/navigation.ts
++++ b/frontend/src/app/shared/ui/templates/app-shell/navigation.ts
+@@ -3,7 +3,10 @@ import { NavLink } from '../../organisms/sidebar/sidebar';
+ 
+ // Cada rol ve solo las opciones que puede usar; así el menú se mantiene corto y claro.
+ export const NAVIGATION: Record<Role, NavLink[]> = {
+-  PATIENT: [{ label: 'Agendar cita', icon: 'calendar', path: '/patient/book-appointment' }],
++  PATIENT: [
++    { label: 'Agendar cita', icon: 'calendar', path: '/patient/book-appointment' },
++    { label: 'Mis citas', icon: 'clipboard-list', path: '/patient/appointments' },
++  ],
+   SCHEDULER: [
+     { label: 'Listar citas', icon: 'clipboard-list', path: '/staff/appointments' },
+     { label: 'Agendar cita', icon: 'calendar', path: '/scheduler/book-appointment' },
