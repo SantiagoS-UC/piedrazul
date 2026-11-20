@@ -10,6 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { finalize, Observable } from 'rxjs';
 import { AuthSession } from '../../../core/auth/auth-session';
 import { toApiError } from '../../../core/http/api-error';
@@ -60,6 +61,7 @@ const SPECIALTY_DETAIL: Record<SpecialtyCode, string> = {
     MonthCalendar,
     PageHeader,
     PatientPicker,
+    RouterLink,
     SlotPicker,
     StepIndicator,
   ],

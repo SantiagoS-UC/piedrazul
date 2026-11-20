@@ -14,7 +14,7 @@ export interface HistoryPatient extends PatientMatch {
   phone: string;
 }
 
-export type HistoryStatus = 'UPCOMING' | 'PAST';
+export type HistoryStatus = 'UPCOMING' | 'PAST' | 'CANCELLED';
 
 export interface HistoryAppointment {
   id: string;
@@ -26,6 +26,8 @@ export interface HistoryAppointment {
   professionalName: string;
   specialtyName: string;
   status: HistoryStatus;
+  /** Motivo que dejó el paciente al cancelar; null si no se canceló. */
+  cancellationReason: string | null;
 }
 
 export interface PatientHistory {
@@ -33,6 +35,7 @@ export interface PatientHistory {
   total: number;
   upcoming: number;
   past: number;
+  cancelled: number;
   /** De la más reciente a la más antigua. */
   appointments: HistoryAppointment[];
 }

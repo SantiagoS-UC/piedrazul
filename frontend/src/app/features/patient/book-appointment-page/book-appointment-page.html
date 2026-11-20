@@ -31,6 +31,9 @@
       [patientName]="patientName()"
     />
     <div class="actions end">
+      @if (!forStaff) {
+        <a appButton variant="secondary" routerLink="/patient/appointments">Ver mis citas</a>
+      }
       <button appButton type="button" (click)="startOver()">Agendar otra cita</button>
     </div>
   </section>

@@ -21,16 +21,23 @@ import { HistoryAppointment } from '../../patient-history-api';
         </thead>
         <tbody>
           @for (appointment of appointments(); track appointment.id) {
-            <tr [class.past]="appointment.status === 'PAST'">
+            <tr [class.past]="appointment.status !== 'UPCOMING'">
               <td class="date">{{ date(appointment.date) }}</td>
               <td class="time">{{ time(appointment.time) }}</td>
               <td class="professional">{{ appointment.professionalName }}</td>
               <td>{{ appointment.specialtyName }}</td>
               <td>
-                @if (appointment.status === 'UPCOMING') {
-                  <app-badge>Próxima</app-badge>
-                } @else {
-                  <app-badge tone="neutral">Pasada</app-badge>
+                @switch (appointment.status) {
+                  @case ('UPCOMING') {
+                    <app-badge>Próxima</app-badge>
+                  }
+                  @case ('CANCELLED') {
+                    <app-badge tone="neutral">Cancelada</app-badge>
+                    <p class="reason">{{ appointment.cancellationReason }}</p>
+                  }
+                  @default {
+                    <app-badge tone="neutral">Pasada</app-badge>
+                  }
                 }
               </td>
             </tr>
@@ -76,6 +83,14 @@ import { HistoryAppointment } from '../../patient-history-api';
     .date,
     .time {
       white-space: nowrap;
+    }
+
+    .reason {
+      max-width: 18rem;
+      margin-top: 0.25rem;
+      font-size: 0.85rem;
+      font-style: italic;
+      color: var(--pz-color-text-muted);
     }
 
     .date,

@@ -1,11 +1,11 @@
 import { Directive, input } from '@angular/core';
 
 /**
- * Da a los campos nativos (input, select) el estilo común y los atributos de accesibilidad que
+ * Da a los campos nativos (input, select, textarea) el estilo común y los atributos de accesibilidad que
  * conectan el campo con su ayuda y su mensaje de error.
  */
 @Directive({
-  selector: 'input[appFieldControl], select[appFieldControl]',
+  selector: 'input[appFieldControl], select[appFieldControl], textarea[appFieldControl]',
   host: {
     class: 'pz-control',
     '[attr.aria-invalid]': 'invalid() || null',

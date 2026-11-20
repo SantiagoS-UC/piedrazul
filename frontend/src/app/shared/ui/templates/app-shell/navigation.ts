@@ -3,7 +3,10 @@ import { NavLink } from '../../organisms/sidebar/sidebar';
 
 // Cada rol ve solo las opciones que puede usar; así el menú se mantiene corto y claro.
 export const NAVIGATION: Record<Role, NavLink[]> = {
-  PATIENT: [{ label: 'Agendar cita', icon: 'calendar', path: '/patient/book-appointment' }],
+  PATIENT: [
+    { label: 'Agendar cita', icon: 'calendar', path: '/patient/book-appointment' },
+    { label: 'Mis citas', icon: 'clipboard-list', path: '/patient/appointments' },
+  ],
   SCHEDULER: [
     { label: 'Listar citas', icon: 'clipboard-list', path: '/staff/appointments' },
     { label: 'Agendar cita', icon: 'calendar', path: '/scheduler/book-appointment' },
