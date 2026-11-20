@@ -59,6 +59,18 @@ public class Appointment {
         return otherStartMinute < end && start < otherStartMinute + otherMinutes;
     }
 
+    /**
+     * La misma cita en otra fecha u hora. Conserva el paciente, el profesional y la fecha de creación;
+     * la duración se recibe porque se toma la configuración vigente del profesional.
+     */
+    public Appointment rescheduleTo(LocalDate newDate, LocalTime newStartTime, int newDurationMinutes) {
+        return new Appointment(id, patientId, professionalId, newDate, newStartTime, newDurationMinutes, createdAt);
+    }
+
+    public boolean startsAt(LocalDate otherDate, LocalTime otherStart) {
+        return date.equals(otherDate) && startTime.equals(otherStart);
+    }
+
     public LocalTime endTime() {
         return startTime.plusMinutes(durationMinutes);
     }

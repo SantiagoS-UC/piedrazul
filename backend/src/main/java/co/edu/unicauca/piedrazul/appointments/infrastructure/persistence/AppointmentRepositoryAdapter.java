@@ -6,6 +6,7 @@ import co.edu.unicauca.piedrazul.appointments.domain.PatientAlreadyBookedExcepti
 import co.edu.unicauca.piedrazul.appointments.domain.SlotTakenException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
@@ -41,6 +42,11 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
             }
             throw ex;
         }
+    }
+
+    @Override
+    public Optional<Appointment> findById(UUID appointmentId) {
+        return jpaRepository.findById(appointmentId).map(AppointmentEntity::toDomain);
     }
 
     @Override

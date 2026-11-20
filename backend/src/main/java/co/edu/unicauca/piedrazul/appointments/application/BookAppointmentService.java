@@ -6,7 +6,6 @@ import co.edu.unicauca.piedrazul.appointments.domain.PatientAlreadyBookedExcepti
 import co.edu.unicauca.piedrazul.appointments.domain.ProfessionalSchedule;
 import co.edu.unicauca.piedrazul.appointments.domain.SlotTakenException;
 import co.edu.unicauca.piedrazul.professionals.ProfessionalSummary;
-import co.edu.unicauca.piedrazul.shared.domain.BusinessRuleViolationException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,24 +37,14 @@ public class BookAppointmentService {
         LocalDateTime now = LocalDateTime.now(clock);
         LocalDate date = command.date();
 
-        if (!schedules.periodStarting(now.toLocalDate()).includes(date) || !schedule.worksOn(date)) {
-            throw new BusinessRuleViolationException("date", "Elige una fecha disponible del calendario.");
-        }
-        if (!schedule.offersSlotAt(command.startTime())) {
-            throw new BusinessRuleViolationException("time", "Elige una de las horas disponibles.");
-        }
-        if (!date.atTime(command.startTime()).isAfter(now)) {
-            throw new BusinessRuleViolationException("time", "Esa hora ya pasó. Elige una hora más tarde.");
-        }
+        SlotRules.checkOffered(schedule, schedules.periodStarting(now.toLocalDate()), date, command.startTime(), now);
         // Primero la cita propia: si el paciente ya reservó esta misma franja, ese mensaje le sirve más.
-        boolean patientBusy = appointmentRepository.findByPatientAndDate(command.patientId(), date).stream()
-                .anyMatch(existing -> existing.overlaps(date, command.startTime(), schedule.slotMinutes()));
-        if (patientBusy) {
+        if (SlotRules.anyOverlaps(appointmentRepository.findByPatientAndDate(command.patientId(), date), date,
+                command.startTime(), schedule.slotMinutes(), null)) {
             throw new PatientAlreadyBookedException();
         }
-        boolean slotTaken = appointmentRepository.findByProfessionalAndDate(command.professionalId(), date).stream()
-                .anyMatch(existing -> existing.overlaps(date, command.startTime(), schedule.slotMinutes()));
-        if (slotTaken) {
+        if (SlotRules.anyOverlaps(appointmentRepository.findByProfessionalAndDate(command.professionalId(), date),
+                date, command.startTime(), schedule.slotMinutes(), null)) {
             throw new SlotTakenException();
         }
 

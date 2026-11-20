@@ -14,8 +14,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_HOME: Record<Role, string> = {
   PATIENT: '/patient/book-appointment',
-  SCHEDULER: '/scheduler/appointments',
-  PROFESSIONAL: '/staff/export-appointments',
+  SCHEDULER: '/staff/appointments',
+  PROFESSIONAL: '/staff/appointments',
   ADMIN: '/admin/configuration',
 };
 

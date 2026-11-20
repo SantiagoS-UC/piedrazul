@@ -113,3 +113,24 @@ Authorization: Bearer {{professionalToken}}
 ### Un paciente no puede consultar historiales: responde 403
 GET http://localhost:8081/api/appointments/patient-history?patientId=00000000-0000-0000-0000-000000000101
 Authorization: Bearer {{patientToken}}
+
+### Reagendar: la profesional mueve una cita de su agenda. Cambia el id por uno que devuelva el listado
+### de citas y la fecha por un día que atienda dentro de la ventana
+PATCH http://localhost:8081/api/appointments/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{professionalToken}}
+Content-Type: application/json
+
+{
+  "date": "2026-10-05",
+  "time": "11:00"
+}
+
+### Con el id de una cita de otro profesional responde 403
+PATCH http://localhost:8081/api/appointments/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{professionalToken}}
+Content-Type: application/json
+
+{
+  "date": "2026-10-05",
+  "time": "11:00"
+}
