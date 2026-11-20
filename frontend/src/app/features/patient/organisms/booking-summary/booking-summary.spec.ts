@@ -1,7 +1,12 @@
+import { registerLocaleData } from '@angular/common';
+import localeEsCo from '@angular/common/locales/es-CO';
 import { TestBed } from '@angular/core/testing';
 import { BookingSummary } from './booking-summary';
 
 describe('BookingSummary', () => {
+  // La fecha se muestra en español de Colombia, como en la aplicación (app.config.ts).
+  beforeAll(() => registerLocaleData(localeEsCo));
+
   function render(patientName: string | null) {
     const fixture = TestBed.createComponent(BookingSummary);
     fixture.componentRef.setInput('specialtyName', 'Medicina general');
