@@ -9,7 +9,8 @@ interface SummaryRow {
 }
 
 /**
- * Datos de una cita tal como los lee el paciente, antes de confirmar y después de agendar.
+ * Datos de una cita tal como los lee el paciente, antes de confirmar y después de agendar. Cuando
+ * agenda el agendador, se agrega el paciente.
  */
 @Component({
   selector: 'app-booking-summary',
@@ -82,8 +83,10 @@ export class BookingSummary {
   /** HH:mm */
   readonly time = input.required<string>();
   readonly durationMinutes = input.required<number>();
+  readonly patientName = input<string | null>(null);
 
   protected readonly rows = computed<SummaryRow[]>(() => [
+    ...this.patientRow(),
     { icon: 'stethoscope', label: 'Especialidad', value: this.specialtyName() },
     { icon: 'user', label: 'Profesional', value: this.professionalName() },
     { icon: 'calendar', label: 'Fecha', value: formatWeekdayDate(parseIsoDate(this.date())) },
@@ -93,4 +96,9 @@ export class BookingSummary {
       value: `${formatTime(this.time())} (duración: ${this.durationMinutes()} minutos)`,
     },
   ]);
+
+  private patientRow(): SummaryRow[] {
+    const patientName = this.patientName();
+    return patientName ? [{ icon: 'user', label: 'Paciente', value: patientName }] : [];
+  }
 }

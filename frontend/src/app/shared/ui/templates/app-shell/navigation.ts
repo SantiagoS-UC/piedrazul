@@ -6,6 +6,7 @@ export const NAVIGATION: Record<Role, NavLink[]> = {
   PATIENT: [{ label: 'Agendar cita', icon: 'calendar', path: '/patient/book-appointment' }],
   SCHEDULER: [
     { label: 'Listar citas', icon: 'clipboard-list', path: '/scheduler/appointments' },
+    { label: 'Agendar cita', icon: 'calendar', path: '/scheduler/book-appointment' },
     { label: 'Exportar citas', icon: 'download', path: '/staff/export-appointments' },
     { label: 'Historial de paciente', icon: 'history', path: '/staff/patient-history' },
   ],
