@@ -76,4 +76,23 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
                 .map(AppointmentEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Appointment> findScheduledBetween(LocalDate from, LocalDate to) {
+        return jpaRepository.findByAppointmentDateBetweenAndStatus(from, to, AppointmentStatus.SCHEDULED).stream()
+                .map(AppointmentEntity::toDomain)
+                .toList();
+    }
+
+    @Override
+    public Optional<LocalDate> firstScheduledDate() {
+        return jpaRepository.findFirstByStatusOrderByAppointmentDateAsc(AppointmentStatus.SCHEDULED)
+                .map(entity -> entity.toDomain().date());
+    }
+
+    @Override
+    public Optional<LocalDate> lastScheduledDate() {
+        return jpaRepository.findFirstByStatusOrderByAppointmentDateDesc(AppointmentStatus.SCHEDULED)
+                .map(entity -> entity.toDomain().date());
+    }
 }

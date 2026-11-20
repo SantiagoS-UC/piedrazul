@@ -31,4 +31,15 @@ public interface AppointmentRepository {
      * Todas las citas del paciente, incluidas las canceladas, de la más reciente a la más antigua.
      */
     List<Appointment> findByPatient(UUID patientId);
+
+    /**
+     * Citas vigentes entre dos fechas, ambas incluidas. Las usa el reporte mensual.
+     */
+    List<Appointment> findScheduledBetween(LocalDate from, LocalDate to);
+
+    /** Fecha de la primera cita vigente registrada. */
+    Optional<LocalDate> firstScheduledDate();
+
+    /** Fecha de la última cita vigente registrada. */
+    Optional<LocalDate> lastScheduledDate();
 }
