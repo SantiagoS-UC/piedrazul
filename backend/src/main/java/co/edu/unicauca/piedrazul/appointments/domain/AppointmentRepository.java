@@ -17,12 +17,18 @@ public interface AppointmentRepository {
 
     Optional<Appointment> findById(UUID appointmentId);
 
+    /**
+     * Citas vigentes del profesional en la fecha. Las canceladas no cuentan: ya no ocupan la franja.
+     */
     List<Appointment> findByProfessionalAndDate(UUID professionalId, LocalDate date);
 
+    /**
+     * Citas vigentes del paciente en la fecha.
+     */
     List<Appointment> findByPatientAndDate(UUID patientId, LocalDate date);
 
     /**
-     * Todas las citas del paciente, de la más reciente a la más antigua.
+     * Todas las citas del paciente, incluidas las canceladas, de la más reciente a la más antigua.
      */
     List<Appointment> findByPatient(UUID patientId);
 }

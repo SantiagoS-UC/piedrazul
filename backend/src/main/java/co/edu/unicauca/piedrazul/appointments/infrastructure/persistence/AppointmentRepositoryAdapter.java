@@ -2,6 +2,7 @@ package co.edu.unicauca.piedrazul.appointments.infrastructure.persistence;
 
 import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
 import co.edu.unicauca.piedrazul.appointments.domain.AppointmentRepository;
+import co.edu.unicauca.piedrazul.appointments.domain.AppointmentStatus;
 import co.edu.unicauca.piedrazul.appointments.domain.PatientAlreadyBookedException;
 import co.edu.unicauca.piedrazul.appointments.domain.SlotTakenException;
 import java.time.LocalDate;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 class AppointmentRepositoryAdapter implements AppointmentRepository {
 
-    // Nombres de las restricciones únicas de V4_1__create_appointments_table.sql.
+    // Nombres de los índices únicos de V4_2__add_appointment_cancellation.sql (antes restricciones de V4_1).
     static final String PROFESSIONAL_SLOT_CONSTRAINT = "uq_appointments_professional_slot";
     static final String PATIENT_SLOT_CONSTRAINT = "uq_appointments_patient_slot";
 
@@ -51,7 +52,10 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
 
     @Override
     public List<Appointment> findByProfessionalAndDate(UUID professionalId, LocalDate date) {
-        return jpaRepository.findByProfessionalIdAndAppointmentDateOrderByStartTime(professionalId, date).stream()
+        return jpaRepository
+                .findByProfessionalIdAndAppointmentDateAndStatusOrderByStartTime(professionalId, date,
+                        AppointmentStatus.SCHEDULED)
+                .stream()
                 .map(AppointmentEntity::toDomain)
                 .toList();
     }
@@ -65,7 +69,10 @@ class AppointmentRepositoryAdapter implements AppointmentRepository {
 
     @Override
     public List<Appointment> findByPatientAndDate(UUID patientId, LocalDate date) {
-        return jpaRepository.findByPatientIdAndAppointmentDateOrderByStartTime(patientId, date).stream()
+        return jpaRepository
+                .findByPatientIdAndAppointmentDateAndStatusOrderByStartTime(patientId, date,
+                        AppointmentStatus.SCHEDULED)
+                .stream()
                 .map(AppointmentEntity::toDomain)
                 .toList();
     }

@@ -42,6 +42,9 @@ public class RescheduleAppointmentService {
         if (requester.professional() && !requester.userId().equals(appointment.professionalId())) {
             throw new AccessForbiddenException("Solo puedes reagendar citas de tu propia agenda.");
         }
+        if (appointment.isCancelled()) {
+            throw new BusinessRuleViolationException("Esta cita fue cancelada y ya no se puede reagendar.");
+        }
         LocalDateTime now = LocalDateTime.now(clock);
         if (!appointment.isUpcomingAt(now)) {
             throw new BusinessRuleViolationException("Solo se pueden reagendar citas que aún no han empezado.");

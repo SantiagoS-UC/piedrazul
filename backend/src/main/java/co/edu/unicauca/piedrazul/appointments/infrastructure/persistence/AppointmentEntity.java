@@ -1,8 +1,12 @@
 package co.edu.unicauca.piedrazul.appointments.infrastructure.persistence;
 
 import co.edu.unicauca.piedrazul.appointments.domain.Appointment;
+import co.edu.unicauca.piedrazul.appointments.domain.AppointmentStatus;
+import co.edu.unicauca.piedrazul.appointments.domain.Cancellation;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -35,6 +39,16 @@ class AppointmentEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private AppointmentStatus status;
+
+    @Column(name = "cancellation_reason")
+    private String cancellationReason;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
     protected AppointmentEntity() {
         // Requerido por JPA.
     }
@@ -48,11 +62,19 @@ class AppointmentEntity {
         entity.startTime = appointment.startTime();
         entity.durationMinutes = appointment.durationMinutes();
         entity.createdAt = appointment.createdAt();
+        entity.status = appointment.status();
+        appointment.cancellation().ifPresent(cancellation -> {
+            entity.cancellationReason = cancellation.reason();
+            entity.cancelledAt = cancellation.cancelledAt();
+        });
         return entity;
     }
 
     Appointment toDomain() {
+        Cancellation cancellation = status == AppointmentStatus.CANCELLED
+                ? new Cancellation(cancellationReason, cancelledAt)
+                : null;
         return Appointment.restore(id, patientId, professionalId, appointmentDate, startTime, durationMinutes,
-                createdAt);
+                createdAt, cancellation);
     }
 }

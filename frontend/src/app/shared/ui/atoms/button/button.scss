@@ -47,6 +47,16 @@
   border-color: #e2e8f0;
 }
 
+:host(.pz-button--danger) {
+  background: var(--pz-color-danger);
+  border-color: var(--pz-color-danger);
+}
+
+:host(.pz-button--danger:hover:not(:disabled)) {
+  background: #991b1b;
+  border-color: #991b1b;
+}
+
 :host(.pz-button--block) {
   width: 100%;
 }
