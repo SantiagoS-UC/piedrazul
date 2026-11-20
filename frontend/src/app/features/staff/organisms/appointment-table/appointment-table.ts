@@ -1,14 +1,17 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { booleanAttribute, ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { formatTime } from '../../../../shared/format/date-time-format';
+import { Button } from '../../../../shared/ui/atoms/button/button';
 import { AgendaAppointment } from '../../agenda-api';
 import { AgendaOrder, formatPhone, patientName, sortAgenda } from '../../agenda-sort';
+import { isUpcoming } from '../../reschedule';
 
 /**
  * Tabla de citas de un día. En pantallas angostas se desplaza horizontalmente en lugar de
- * apretar las columnas.
+ * apretar las columnas. Con canReschedule agrega el botón para reagendar las citas que no han empezado.
  */
 @Component({
   selector: 'app-appointment-table',
+  imports: [Button],
   template: `
     <div class="scroll" tabindex="0" role="region" [attr.aria-label]="caption()">
       <table>
@@ -19,6 +22,9 @@ import { AgendaOrder, formatPhone, patientName, sortAgenda } from '../../agenda-
             <th scope="col">Paciente ({{ order() === 'firstName' ? 'nombres y apellidos' : 'apellidos y nombres' }})</th>
             <th scope="col">Documento</th>
             <th scope="col">Teléfono</th>
+            @if (canReschedule()) {
+              <th scope="col"><span class="pz-sr-only">Acciones</span></th>
+            }
           </tr>
         </thead>
         <tbody>
@@ -28,6 +34,21 @@ import { AgendaOrder, formatPhone, patientName, sortAgenda } from '../../agenda-
               <td class="patient">{{ name(appointment) }}</td>
               <td>{{ appointment.patient.documentType }} {{ appointment.patient.documentNumber }}</td>
               <td class="phone">{{ phone(appointment.patient.phone) }}</td>
+              @if (canReschedule()) {
+                <td class="actions">
+                  @if (upcoming(appointment)) {
+                    <button
+                      appButton
+                      variant="secondary"
+                      type="button"
+                      [attr.aria-label]="'Reagendar la cita de ' + name(appointment)"
+                      (click)="reschedule.emit(appointment)"
+                    >
+                      Reagendar
+                    </button>
+                  }
+                </td>
+              }
             </tr>
           }
         </tbody>
@@ -77,6 +98,11 @@ import { AgendaOrder, formatPhone, patientName, sortAgenda } from '../../agenda-
     .patient {
       font-weight: 600;
     }
+
+    .actions {
+      text-align: right;
+      white-space: nowrap;
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -84,10 +110,19 @@ export class AppointmentTable {
   readonly appointments = input.required<AgendaAppointment[]>();
   readonly order = input<AgendaOrder>('time');
   readonly caption = input('Citas del día');
+  /** aaaa-mm-dd. Fecha de las citas, para saber cuáles ya empezaron. */
+  readonly date = input<string | null>(null);
+  readonly canReschedule = input(false, { transform: booleanAttribute });
+  readonly reschedule = output<AgendaAppointment>();
 
   protected readonly rows = computed(() => sortAgenda(this.appointments(), this.order()));
   protected readonly time = formatTime;
   protected readonly phone = formatPhone;
+
+  protected upcoming(appointment: AgendaAppointment): boolean {
+    const date = this.date();
+    return date !== null && isUpcoming(date, appointment.time);
+  }
 
   protected name(appointment: AgendaAppointment): string {
     return patientName(appointment, this.order());

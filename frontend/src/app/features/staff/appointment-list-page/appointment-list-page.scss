@@ -19,6 +19,10 @@
   align-items: start;
 }
 
+.filters--date-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .search {
   grid-column: 1 / -1;
   justify-self: end;

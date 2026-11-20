@@ -1,7 +1,7 @@
 import { HttpClient, HttpResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { BookableProfessional } from '../patient/booking-api';
+import { BookableProfessional, BookedAppointment } from '../patient/booking-api';
 
 export interface AgendaPatient {
   givenNames: string;
@@ -43,6 +43,11 @@ export class AgendaApi {
       responseType: 'blob',
       observe: 'response',
     });
+  }
+
+  /** Mueve la cita a otra fecha y hora de la misma agenda. */
+  reschedule(appointmentId: string, date: string, time: string): Observable<BookedAppointment> {
+    return this.http.patch<BookedAppointment>(`/api/appointments/${appointmentId}`, { date, time });
   }
 }
 
