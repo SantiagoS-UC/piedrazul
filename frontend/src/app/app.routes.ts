@@ -69,6 +69,15 @@ export const routes: Routes = [
           import('./features/staff/patient-history-page/patient-history-page').then((m) => m.PatientHistoryPage),
       },
       {
+        path: 'reports/appointments',
+        title: 'Reporte de citas | Piedrazul',
+        canActivate: [roleGuard('PROFESSIONAL', 'SCHEDULER', 'ADMIN')],
+        loadComponent: () =>
+          import('./features/reports/appointments-report-page/appointments-report-page').then(
+            (m) => m.AppointmentsReportPage,
+          ),
+      },
+      {
         path: 'admin/configuration',
         canActivate: [roleGuard('ADMIN')],
         children: [

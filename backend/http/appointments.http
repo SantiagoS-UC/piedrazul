@@ -156,3 +156,11 @@ Content-Type: application/json
 {
   "reason": ""
 }
+
+### RF7: reporte de citas por mes y profesional de 2026 (sin year devuelve el año actual)
+GET http://localhost:8081/api/appointments/report/monthly?year=2026
+Authorization: Bearer {{professionalToken}}
+
+### Un paciente no puede ver el reporte: responde 403
+GET http://localhost:8081/api/appointments/report/monthly
+Authorization: Bearer {{patientToken}}
