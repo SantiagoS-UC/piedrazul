@@ -89,6 +89,13 @@ Tiene dos trabajos en paralelo:
 
 Los resultados se ven en la pestaña *Actions* del repositorio y en cada PR.
 
+## Despliegue
+
+La aplicación está publicada en **https://piedrazul-web.onrender.com** (Render, Neon y
+Cloud-IAM, todo en planes gratuitos). Cada merge a `main` la vuelve a desplegar con el workflow
+`.github/workflows/cd.yml`, después de correr todas las pruebas. El diseño del despliegue y del
+esquema de CI/CD está en [docs/despliegue.md](docs/despliegue.md).
+
 ## Pruebas
 
 - Backend, desde `backend/`: `./mvnw test`. Incluye `ModularityTest`, que falla si un módulo usa

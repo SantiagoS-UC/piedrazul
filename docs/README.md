@@ -18,6 +18,8 @@ Aquí quedan los diagramas que conviene versionar junto al código, en formato P
 | `diagrams/uml` | `6-uml-proceso.puml` | 4+1, vista de procesos: exportar citas |
 | `diagrams/uml` | `7-uml-desarrollo.puml` | 4+1, vista de desarrollo: paquetes |
 | `diagrams/uml` | `8-uml-fisica.puml` | 4+1, vista física: despliegue |
+| `diagrams/uml` | `9-despliegue-nube.puml` | 4+1, vista física: despliegue en la nube |
+| `diagrams/uml` | `10-ci-cd.puml` | Esquema de CI/CD |
 
 La vista lógica del modelo 4+1 corresponde a los diagramas de clases del nivel 4 del C4.
 
