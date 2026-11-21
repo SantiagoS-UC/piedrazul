@@ -84,7 +84,8 @@ usuarios creados a mano).
 El workflow `.github/workflows/ci.yml` corre en GitHub Actions en cada PR y en cada push a `develop`.
 Tiene dos trabajos en paralelo:
 
-- **Backend:** `./mvnw verify` con Java 21 (pruebas unitarias y `ModularityTest`).
+- **Backend:** `./mvnw verify` con Java 21: pruebas unitarias, `ModularityTest` y las pruebas de
+  integración y de aceptación, que levantan un PostgreSQL en Docker con Testcontainers.
 - **Frontend:** `npm ci`, `ng test` y `ng build` de producción.
 
 Los resultados se ven en la pestaña *Actions* del repositorio y en cada PR.
@@ -98,8 +99,20 @@ esquema de CI/CD está en [docs/despliegue.md](docs/despliegue.md).
 
 ## Pruebas
 
-- Backend, desde `backend/`: `./mvnw test`. Incluye `ModularityTest`, que falla si un módulo usa
-  clases internas de otro.
+Las pruebas siguen la pirámide: muchas pruebas unitarias rápidas, algunas de integración y unas
+pocas de aceptación que recorren el sistema completo.
+
+| Nivel | Qué prueba | Dónde |
+|---|---|---|
+| Unitarias | Reglas del dominio y casos de uso, con dobles de prueba (Mockito) | `backend/src/test/.../domain` y `.../application`, `frontend/**/*.spec.ts` |
+| Arquitectura | Que un módulo no use clases internas de otro | `ModularityTest` |
+| Integración | El adaptador de persistencia contra PostgreSQL real: migraciones, índices únicos y su traducción a errores del dominio | `AppointmentRepositoryIntegrationTest` |
+| Aceptación | Los criterios de aceptación de las historias de usuario, de punta a punta por la API (seguridad, servicios y base de datos) | `acceptance/AppointmentsAcceptanceTest` |
+
+- Backend, desde `backend/`: `./mvnw verify`. Las pruebas de integración y de aceptación necesitan
+  Docker encendido: Testcontainers levanta un PostgreSQL 17 temporal con las migraciones y los
+  datos semilla, y lo borra al terminar. Usan un reloj fijo (lunes 28 de septiembre de 2026) para
+  que los resultados no dependan del día.
 - Frontend, desde `frontend/`: `npx ng test --watch=false`.
 - La API se puede probar a mano con los archivos de `backend/http/`, que se ejecutan desde IntelliJ.
 
