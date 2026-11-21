@@ -1,24 +1,58 @@
-<app-page-header heading="Agendar cita" description="Sigue los pasos para reservar tu cita. Puedes volver atrás en cualquier momento." />
+@if (forStaff) {
+  <app-page-header
+    heading="Agendar cita"
+    description="Registra la cita de un paciente que la pide por teléfono o WhatsApp."
+  />
+} @else {
+  <app-page-header heading="Agendar cita" description="Sigue los pasos para reservar tu cita. Puedes volver atrás en cualquier momento." />
+}
 
 @if (booked(); as appointment) {
   <section class="card done" aria-labelledby="booked-title">
     <span class="done-icon"><app-icon name="check-circle" [size]="48" /></span>
-    <h2 id="booked-title" #stepHeading tabindex="-1">¡Tu cita quedó agendada!</h2>
-    <p class="lead">
-      Te esperamos el {{ weekdayDate(appointment.date) }} a las {{ formatTime(appointment.time) }}
-    </p>
+    @if (forStaff) {
+      <h2 id="booked-title" #stepHeading tabindex="-1">¡La cita quedó agendada!</h2>
+      <p class="lead">
+        {{ patientName() }} tiene cita el {{ weekdayDate(appointment.date) }} a las
+        {{ formatTime(appointment.time) }}
+      </p>
+    } @else {
+      <h2 id="booked-title" #stepHeading tabindex="-1">¡Tu cita quedó agendada!</h2>
+      <p class="lead">
+        Te esperamos el {{ weekdayDate(appointment.date) }} a las {{ formatTime(appointment.time) }}
+      </p>
+    }
     <app-booking-summary
       [specialtyName]="appointment.professional.specialtyName"
       [professionalName]="lastNameFirst(appointment.professional)"
       [date]="appointment.date"
       [time]="appointment.time"
       [durationMinutes]="appointment.durationMinutes"
+      [patientName]="patientName()"
     />
     <div class="actions end">
+      @if (!forStaff) {
+        <a appButton variant="secondary" routerLink="/patient/appointments">Ver mis citas</a>
+      }
       <button appButton type="button" (click)="startOver()">Agendar otra cita</button>
     </div>
   </section>
 } @else {
+  @if (forStaff) {
+    <section class="card" aria-labelledby="patient-title">
+      <header>
+        <h2 id="patient-title">Paciente</h2>
+        <p>Busca al paciente por su número de documento. Debe estar registrado en Piedrazul.</p>
+      </header>
+      <app-patient-picker
+        inputId="booking-patient"
+        [patient]="patient()"
+        [error]="patientError()"
+        (patientChange)="choosePatient($event)"
+      />
+    </section>
+  }
+
   <app-step-indicator [steps]="steps" [current]="step()" />
 
   <section class="card" aria-labelledby="step-title">
@@ -30,7 +64,9 @@
     @switch (step()) {
       @case (0) {
         <header>
-          <h2 id="step-title" #stepHeading tabindex="-1">¿Qué tipo de atención necesitas?</h2>
+          <h2 id="step-title" #stepHeading tabindex="-1">
+            {{ forStaff ? '¿Qué tipo de atención necesita el paciente?' : '¿Qué tipo de atención necesitas?' }}
+          </h2>
           <p>Elige la especialidad.</p>
         </header>
         <div class="choices" role="group" aria-labelledby="step-title">
@@ -121,7 +157,9 @@
 
       @case (3) {
         <header>
-          <h2 id="step-title" #stepHeading tabindex="-1">Revisa y confirma tu cita</h2>
+          <h2 id="step-title" #stepHeading tabindex="-1">
+            {{ forStaff ? 'Revisa y confirma la cita' : 'Revisa y confirma tu cita' }}
+          </h2>
           <p>Verifica que los datos sean correctos antes de confirmar.</p>
         </header>
         @if (professional(); as chosen) {
@@ -131,6 +169,7 @@
             [date]="date() ?? ''"
             [time]="time() ?? ''"
             [durationMinutes]="calendar()?.slotMinutes ?? 0"
+            [patientName]="patientName()"
           />
         }
       }

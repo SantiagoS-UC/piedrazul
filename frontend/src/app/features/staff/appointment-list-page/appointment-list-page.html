@@ -1,31 +1,47 @@
-<app-page-header
-  heading="Listado de citas"
-  description="Consulta las citas de un médico o terapista en una fecha."
-/>
+@if (isProfessional) {
+  <app-page-header
+    heading="Mis citas"
+    description="Consulta tu agenda de un día y reagenda las citas que aún no empiezan."
+  />
+} @else {
+  <app-page-header
+    heading="Listado de citas"
+    description="Consulta las citas de un médico o terapista en una fecha y reagéndalas si hace falta."
+  />
+}
 
-<form class="card filters" [formGroup]="form" (ngSubmit)="search()" novalidate aria-label="Filtros de búsqueda">
-  <app-form-field
-    label="Profesional"
-    fieldId="agenda-professional"
-    required
-    hint="Ordenados alfabéticamente por apellido."
-    [error]="error('professionalId')"
-  >
-    <select
-      appFieldControl
-      id="agenda-professional"
-      formControlName="professionalId"
-      [invalid]="!!error('professionalId')"
-      [describedBy]="describedBy('agenda-professional', true)"
+<form
+  class="card filters"
+  [class.filters--date-only]="isProfessional"
+  [formGroup]="form"
+  (ngSubmit)="successMessage.set(null); search()"
+  novalidate
+  aria-label="Filtros de búsqueda"
+>
+  @if (!isProfessional) {
+    <app-form-field
+      label="Profesional"
+      fieldId="agenda-professional"
+      required
+      hint="Ordenados alfabéticamente por apellido."
+      [error]="error('professionalId')"
     >
-      <option value="">Selecciona un profesional</option>
-      @for (professional of professionals(); track professional.id) {
-        <option [value]="professional.id">
-          {{ lastNameFirst(professional) }} · {{ professional.specialtyName }}
-        </option>
-      }
-    </select>
-  </app-form-field>
+      <select
+        appFieldControl
+        id="agenda-professional"
+        formControlName="professionalId"
+        [invalid]="!!error('professionalId')"
+        [describedBy]="describedBy('agenda-professional', true)"
+      >
+        <option value="">Selecciona un profesional</option>
+        @for (professional of professionals(); track professional.id) {
+          <option [value]="professional.id">
+            {{ lastNameFirst(professional) }} · {{ professional.specialtyName }}
+          </option>
+        }
+      </select>
+    </app-form-field>
+  }
 
   <app-form-field label="Fecha" fieldId="agenda-date" required hint="Por defecto, hoy." [error]="error('date')">
     <input
@@ -43,6 +59,10 @@
 
 @if (errorMessage()) {
   <app-alert type="error">{{ errorMessage() }}</app-alert>
+}
+
+@if (successMessage()) {
+  <app-alert type="success">{{ successMessage() }}</app-alert>
 }
 
 @if (agenda(); as result) {
@@ -69,7 +89,24 @@
           }
         </select>
       </div>
-      <app-appointment-table [appointments]="result.appointments" [order]="order()" [caption]="resultTitle()" />
+      <app-appointment-table
+        canReschedule
+        [appointments]="result.appointments"
+        [order]="order()"
+        [caption]="resultTitle()"
+        [date]="result.date"
+        (reschedule)="startReschedule($event)"
+      />
     }
   </section>
+}
+
+@if (agenda(); as current) {
+  <app-reschedule-dialog
+    [appointment]="rescheduling()"
+    [professionalId]="current.professional.id"
+    [currentDate]="current.date"
+    (rescheduled)="finishReschedule($event)"
+    (closed)="rescheduling.set(null)"
+  />
 }

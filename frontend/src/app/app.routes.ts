@@ -30,9 +30,23 @@ export const routes: Routes = [
           import('./features/patient/book-appointment-page/book-appointment-page').then((m) => m.BookAppointmentPage),
       },
       {
-        path: 'scheduler/appointments',
-        title: 'Listado de citas | Piedrazul',
+        path: 'patient/appointments',
+        title: 'Mis citas | Piedrazul',
+        canActivate: [roleGuard('PATIENT')],
+        loadComponent: () =>
+          import('./features/patient/my-appointments-page/my-appointments-page').then((m) => m.MyAppointmentsPage),
+      },
+      {
+        path: 'scheduler/book-appointment',
+        title: 'Agendar cita | Piedrazul',
         canActivate: [roleGuard('SCHEDULER')],
+        loadComponent: () =>
+          import('./features/patient/book-appointment-page/book-appointment-page').then((m) => m.BookAppointmentPage),
+      },
+      {
+        path: 'staff/appointments',
+        title: 'Listado de citas | Piedrazul',
+        canActivate: [roleGuard('SCHEDULER', 'PROFESSIONAL')],
         loadComponent: () =>
           import('./features/staff/appointment-list-page/appointment-list-page').then(
             (m) => m.AppointmentListPage,
@@ -53,6 +67,15 @@ export const routes: Routes = [
         canActivate: [roleGuard('SCHEDULER', 'PROFESSIONAL')],
         loadComponent: () =>
           import('./features/staff/patient-history-page/patient-history-page').then((m) => m.PatientHistoryPage),
+      },
+      {
+        path: 'reports/appointments',
+        title: 'Reporte de citas | Piedrazul',
+        canActivate: [roleGuard('PROFESSIONAL', 'SCHEDULER', 'ADMIN')],
+        loadComponent: () =>
+          import('./features/reports/appointments-report-page/appointments-report-page').then(
+            (m) => m.AppointmentsReportPage,
+          ),
       },
       {
         path: 'admin/configuration',

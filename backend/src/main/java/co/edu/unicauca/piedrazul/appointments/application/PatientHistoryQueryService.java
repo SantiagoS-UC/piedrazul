@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * RF5: historial de citas de un paciente con todos los profesionales, para el agendador y para
- * cualquier médico o terapista.
+ * cualquier médico o terapista. El paciente usa la misma consulta para ver sus propias citas.
  */
 @Service
 @Transactional(readOnly = true)
@@ -53,7 +53,8 @@ public class PatientHistoryQueryService {
         List<PatientHistoryEntry> entries = appointments.stream()
                 .map(appointment -> new PatientHistoryEntry(appointment,
                         Optional.ofNullable(professionals.get(appointment.professionalId())),
-                        appointment.isUpcomingAt(now)))
+                        !appointment.isCancelled() && appointment.isUpcomingAt(now),
+                        appointment.canBeCancelledOn(now.toLocalDate())))
                 .toList();
         return new PatientHistory(patient, entries);
     }

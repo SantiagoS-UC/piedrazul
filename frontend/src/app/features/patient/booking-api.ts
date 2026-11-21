@@ -38,6 +38,13 @@ export interface BookedAppointment {
   professional: BookableProfessional;
 }
 
+/** Cita que registra el agendador a nombre de un paciente. */
+export interface StaffBookedAppointment extends BookedAppointment {
+  patientName: string;
+  /** Tipo y número, por ejemplo "CC 1061000001". */
+  patientDocument: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class BookingApi {
   private readonly http = inject(HttpClient);
@@ -61,6 +68,20 @@ export class BookingApi {
 
   book(professionalId: string, date: string, time: string): Observable<BookedAppointment> {
     return this.http.post<BookedAppointment>('/api/appointments', { professionalId, date, time });
+  }
+
+  bookForPatient(
+    patientId: string,
+    professionalId: string,
+    date: string,
+    time: string,
+  ): Observable<StaffBookedAppointment> {
+    return this.http.post<StaffBookedAppointment>('/api/appointments/for-patient', {
+      patientId,
+      professionalId,
+      date,
+      time,
+    });
   }
 }
 

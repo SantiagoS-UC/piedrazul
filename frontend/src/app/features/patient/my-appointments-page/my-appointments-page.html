@@ -1,0 +1,75 @@
+<app-page-header
+  heading="Mis citas"
+  description="Consulta tus citas y cancela las que no puedas atender, con mínimo dos días de anticipación."
+/>
+
+@if (errorMessage()) {
+  <app-alert type="error">{{ errorMessage() }}</app-alert>
+}
+
+@if (successMessage()) {
+  <app-alert type="success">{{ successMessage() }}</app-alert>
+}
+
+@if (loading() && appointments().length === 0) {
+  <p class="loading"><app-spinner /> Cargando tus citas…</p>
+} @else {
+  <section class="card" aria-labelledby="upcoming-title">
+    <h2 id="upcoming-title">Próximas citas</h2>
+    @for (appointment of groups().upcoming; track appointment.id) {
+      <article class="appointment">
+        <span class="icon"><app-icon name="calendar" /></span>
+        <div class="details">
+          <p class="when">{{ weekdayDate(appointment.date) }} · {{ formatTime(appointment.time) }}</p>
+          <p class="who">{{ appointment.professionalName }} · {{ appointment.specialtyName }}</p>
+          @if (!appointment.cancellable) {
+            <p class="hint">
+              Faltan menos de {{ rules.minDaysBefore }} días: ya no se puede cancelar en línea. Si no puedes asistir,
+              comunícate con la clínica.
+            </p>
+          }
+        </div>
+        @if (appointment.cancellable) {
+          <button appButton variant="secondary" type="button" (click)="startCancel(appointment)">
+            Cancelar cita
+          </button>
+        }
+      </article>
+    } @empty {
+      <div class="empty">
+        <p>No tienes citas próximas.</p>
+        <a appButton routerLink="/patient/book-appointment">Agendar una cita</a>
+      </div>
+    }
+  </section>
+
+  @if (groups().others.length > 0) {
+    <section class="card" aria-labelledby="history-title">
+      <h2 id="history-title">Citas anteriores y canceladas</h2>
+      <ul class="history">
+        @for (appointment of groups().others; track appointment.id) {
+          <li [class.cancelled]="appointment.status === 'CANCELLED'">
+            <div>
+              <p class="when">{{ longDate(appointment.date) }} · {{ formatTime(appointment.time) }}</p>
+              <p class="who">{{ appointment.professionalName }} · {{ appointment.specialtyName }}</p>
+              @if (appointment.cancellationReason) {
+                <p class="reason">Motivo: {{ appointment.cancellationReason }}</p>
+              }
+            </div>
+            @if (appointment.status === 'CANCELLED') {
+              <app-badge tone="neutral">Cancelada</app-badge>
+            } @else {
+              <app-badge tone="neutral">Pasada</app-badge>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+  }
+}
+
+<app-cancel-dialog
+  [appointment]="cancelling()"
+  (cancelled)="finishCancel($event)"
+  (closed)="cancelling.set(null)"
+/>

@@ -1,0 +1,132 @@
+<app-page-header
+  heading="Reporte de citas"
+  description="Cantidad de citas por mes y por profesional en el año que elijas. No incluye las citas canceladas."
+/>
+
+<section class="card toolbar" aria-label="Filtros del reporte">
+  <label for="report-year">Año</label>
+  <select
+    appFieldControl
+    id="report-year"
+    [disabled]="loading()"
+    (change)="changeYear($any($event.target).value)"
+  >
+    @for (year of report()?.availableYears ?? []; track year) {
+      <option [value]="year" [selected]="year === report()?.year">{{ year }}</option>
+    }
+  </select>
+  @if (loading()) {
+    <app-spinner />
+  }
+</section>
+
+@if (errorMessage()) {
+  <app-alert type="error">{{ errorMessage() }}</app-alert>
+}
+
+@if (report(); as current) {
+  <dl class="stats">
+    <div class="stat">
+      <dt>Citas en {{ current.year }}</dt>
+      <dd>{{ current.total }}</dd>
+    </div>
+    <div class="stat">
+      <dt>Mes con más citas</dt>
+      <dd>
+        @if (busiestMonth(); as month) {
+          <span class="capitalize">{{ month.name }}</span> <small>({{ month.total }})</small>
+        } @else {
+          —
+        }
+      </dd>
+    </div>
+    <div class="stat">
+      <dt>Profesional con más citas</dt>
+      <dd>
+        @if (busiestProfessional(); as professional) {
+          {{ professional.name }} <small>({{ professional.total }})</small>
+        } @else {
+          —
+        }
+      </dd>
+    </div>
+  </dl>
+
+  <section class="card" aria-labelledby="chart-title">
+    <h2 id="chart-title">Citas por mes · {{ current.year }}</h2>
+
+    <div class="legend" role="group" aria-label="Mostrar u ocultar profesionales en la gráfica">
+      @for (item of legend(); track item.id) {
+        <button
+          type="button"
+          class="legend-item"
+          [class.off]="!item.visible"
+          [attr.aria-pressed]="item.visible"
+          (click)="toggle(item.id)"
+        >
+          <span class="swatch" [style.background]="item.color"></span>
+          <span>{{ item.name }}</span>
+          <span class="legend-total">{{ item.total }}</span>
+        </button>
+      }
+    </div>
+
+    @if (current.total === 0) {
+      <p class="muted">No hay citas registradas en {{ current.year }}.</p>
+    } @else if (series().length === 0) {
+      <p class="muted">Elige al menos un profesional en la leyenda para ver la gráfica.</p>
+    } @else {
+      <div class="chart-scroll">
+        <app-grouped-bar-chart
+          [categories]="monthLabels"
+          [categoryTitles]="categoryTitles()"
+          [series]="series()"
+          [label]="chartLabel()"
+        />
+      </div>
+    }
+  </section>
+
+  <section class="card" aria-labelledby="table-title">
+    <h2 id="table-title">Detalle por profesional</h2>
+    <div class="table-scroll" tabindex="0" role="region" aria-labelledby="table-title">
+      <table>
+        <caption class="pz-sr-only">Citas por mes y profesional en {{ current.year }}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Profesional</th>
+            @for (month of months; track month.short) {
+              <th scope="col"><abbr [title]="month.long">{{ month.short }}</abbr></th>
+            }
+            <th scope="col">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of current.professionals; track row.id) {
+            <tr>
+              <th scope="row">
+                {{ row.name }}
+                <span class="specialty">{{ row.specialtyName }}</span>
+              </th>
+              @for (count of row.counts; track $index) {
+                <td [class.zero]="count === 0">{{ count }}</td>
+              }
+              <td class="total">{{ row.total }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Total de la clínica</th>
+            @for (count of current.monthTotals; track $index) {
+              <td>{{ count }}</td>
+            }
+            <td class="total">{{ current.total }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+} @else if (loading()) {
+  <p class="loading"><app-spinner /> Cargando el reporte…</p>
+}

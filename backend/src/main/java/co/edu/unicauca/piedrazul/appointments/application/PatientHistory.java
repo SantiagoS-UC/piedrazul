@@ -16,7 +16,12 @@ public record PatientHistory(PatientSummary patient, List<PatientHistoryEntry> e
         return entries.stream().filter(PatientHistoryEntry::upcoming).count();
     }
 
+    public long cancelled() {
+        return entries.stream().filter(entry -> entry.appointment().isCancelled()).count();
+    }
+
+    /** Citas vigentes que ya pasaron. */
     public long past() {
-        return total() - upcoming();
+        return total() - upcoming() - cancelled();
     }
 }
