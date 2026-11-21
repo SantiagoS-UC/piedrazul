@@ -40,6 +40,9 @@ management:
       probes:
         enabled: true
   info:
+    # Publica las propiedades info.* de abajo; desde Spring Boot 3 viene apagado.
+    env:
+      enabled: true
     java:
       enabled: true
 
