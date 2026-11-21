@@ -41,7 +41,7 @@ import { CANCELLATION_RULES, MyAppointment, MyAppointmentsApi } from '../../my-a
         Al cancelar, el horario queda libre para otro paciente. Esta acción no se puede deshacer.
       </p>
 
-      <form (ngSubmit)="confirm()" novalidate>
+      <form novalidate (submit)="submit($event)">
         <app-form-field
           label="¿Por qué cancelas la cita?"
           fieldId="cancel-reason"
@@ -188,7 +188,14 @@ export class CancelDialog {
     });
   }
 
-  protected confirm(): void {
+  // El formulario no usa [formGroup], así que Angular no intercepta el envío: sin preventDefault el
+  // navegador recargaría la página.
+  protected submit(event: Event): void {
+    event.preventDefault();
+    this.confirm();
+  }
+
+  private confirm(): void {
     const appointment = this.appointment();
     this.submitted.set(true);
     this.serverReasonError.set(null);
