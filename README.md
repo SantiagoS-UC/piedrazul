@@ -97,6 +97,16 @@ Cloud-IAM, todo en planes gratuitos). Cada merge a `main` la vuelve a desplegar 
 `.github/workflows/cd.yml`, después de correr todas las pruebas. El diseño del despliegue y del
 esquema de CI/CD está en [docs/despliegue.md](docs/despliegue.md).
 
+## Monitoreo
+
+- Salud del backend: `/actuator/health` (también `/liveness` y `/readiness`) e `/actuator/info`,
+  públicos. Render usa el primero como health check.
+- Logs: una línea por petición a la API con método, ruta, estado y duración, y un id de petición
+  (cabecera `X-Request-Id`) en todas las líneas. En producción se ven en la pestaña *Logs* de
+  Render.
+
+Detalles en [docs/monitoreo.md](docs/monitoreo.md).
+
 ## Pruebas
 
 Las pruebas siguen la pirámide: muchas pruebas unitarias rápidas, algunas de integración y unas

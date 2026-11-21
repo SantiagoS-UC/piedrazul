@@ -21,6 +21,11 @@ Aquí quedan los diagramas que conviene versionar junto al código, en formato P
 | `diagrams/uml` | `9-despliegue-nube.puml` | 4+1, vista física: despliegue en la nube |
 | `diagrams/uml` | `10-ci-cd.puml` | Esquema de CI/CD |
 
+Además:
+
+- [despliegue.md](despliegue.md): despliegue en la nube y esquema de CI/CD.
+- [monitoreo.md](monitoreo.md): salud del backend, logs y login centralizado.
+
 La vista lógica del modelo 4+1 corresponde a los diagramas de clases del nivel 4 del C4.
 
 Los diagramas se abren con el plugin PlantUML Integration de IntelliJ y no necesitan Graphviz
